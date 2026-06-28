@@ -12,6 +12,7 @@
 | 결정 | 상태 | 필요 시점 |
 |---|---|---|
 | 프론트 빌드 도구 | **확정: Vite + React** (SPA) | P0 |
+| LLM 제공자 | **확정: Claude 기본 + Gemini 무료 토글** (추상화) | P4 |
 | 벡터 저장소 | 권장: sqlite-vec (미확정) | P2 |
 | 외부 이미지 API 공급자 | 미정 (Replicate / fal 등) | P6 |
 | 자동 업데이트 방식 | 미정 | P8 |
@@ -79,8 +80,9 @@
 **목표:** 첫 세로 슬라이스(텍스트). 소설을 넣으면 인물이 추출되고 캐릭터 뱅크가 쌓인다. (FR-1.1, FR-0.3, FR-1.2)
 *의존: P1, P2, P3*
 
-- [ ] `app/llm/` 단일 Claude 클라이언트(키는 keyring에서). `claude-api` 스킬 기준으로 작성
-- [ ] 모델-역할 매핑: 분류=haiku, 요약/추출=sonnet, 추론=opus
+- [ ] `app/llm/` 의 `LLMProvider` 추상화 + **Claude 구현체**(`claude-api` 스킬 기준) + **Gemini 무료 구현체**
+- [ ] 설정에 "무료 버전 사용" 토글 + Gemini 키 슬롯(P1 키 관리 확장)
+- [ ] 모델-역할 매핑(Claude): 분류=haiku, 요약/추출=sonnet, 추론=opus
 - [ ] 회차(Episode) 업로드: 텍스트 입력 + (선택) Files API 업로드
 - [ ] 인물 추출 + 신규/기존 교차검증: `output_config.format`(JSON schema)로 `{characters:[{name,is_new,traits,matched_character_id}]}`
 - [ ] 유저 확인 UI: 신규/기존 판별 결과 확인·수정

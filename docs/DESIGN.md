@@ -95,17 +95,35 @@
 
 ## 5. 키·설정 관리 (데스크톱 핵심)
 
-- 최초 실행 시 **본인 Anthropic 키 + 이미지 API 키** 입력. exe에 어떤 키도 번들하지 않음.
+- 최초 실행 시 **본인 Anthropic 키 + (선택)Gemini 무료 키 + 이미지 API 키** 입력. exe에 어떤 키도 번들하지 않음.
 - 저장: `keyring`으로 OS 자격증명 저장소(Windows Credential Manager). 평문 JSON 금지.
 - 입력 직후 가벼운 호출(예: Claude `models.list` / 이미지 API ping)로 키 유효성 검증.
 - 키 없음/만료 시 명확한 안내 + 설정 화면으로 유도. 비용은 사용자 부담임을 UI에 명시.
 - 모든 외부 호출은 사용자 키로 사용자 PC에서 직접 발생 → 우리 쪽 프록시/서버 없음.
 
-## 6. Claude(LLM) 통합 설계
+## 6. LLM 통합 설계 (제공자 추상화)
 
-> 정확한 모델 ID·가격·API 동작은 [CLAUDE.md](../CLAUDE.md) 참조. 모든 LLM 호출은 `app/llm/` 의 단일 클라이언트 모듈을 경유하며, 키는 §5의 저장소에서 읽는다.
+> 정확한 모델 ID·가격·API 동작은 [CLAUDE.md](../CLAUDE.md) 참조. 모든 LLM 호출은 `app/llm/` 의 단일 모듈을 경유하며, 키는 §5의 저장소에서 읽는다.
 
-### 6.1 모델 선택 (역할별)
+### 6.0 제공자 추상화 — Claude 기본 + Gemini 무료 토글
+
+`LLMProvider` 인터페이스 뒤에 두 구현체를 둔다(구현은 P4):
+
+- **Claude(Anthropic)** — 기본·고품질. 비용은 사용자 부담.
+- **Gemini(Google) 무료 티어** — 설정의 "무료 버전 사용" 토글 시 사용. 무료 키 발급, 분당 요청 제한 있음.
+
+```python
+class LLMProvider(Protocol):
+    def extract_characters(self, text: str, bank: CharacterBank) -> CharacterExtraction: ...
+    def summarize_episode(self, text: str, context: GlobalMemory) -> str: ...
+    def generate_storyboard(self, episode: Episode, memory: GlobalMemory) -> list[PanelDraft]: ...
+```
+
+**통일성에 미치는 영향(중요):** 프로젝트 기억은 *모델*이 아니라 *데이터*(글로벌 메모리를 매 회차 재주입)에서 나오므로, 무료 LLM으로 바꿔도 **기억 메커니즘은 유지**되고 텍스트 품질(추출 정확도·요약 충실도·콘티 표현력)만 점진적으로 하락한다. 시각적 일관성(얼굴/화풍)은 LLM이 아니라 §7 이미지 단계가 좌우한다.
+
+**제공자별 차이(P4에서 흡수):** 프롬프트 캐싱·구조화 출력은 제공자마다 방식이 다르다(Claude=`cache_control`/`output_config.format`, Gemini=context caching/response schema). 인터페이스는 동일하게 유지하고 내부에서 매핑한다.
+
+### 6.1 모델 선택 (역할별 — Claude 사용 시)
 
 | 역할 | 모델 | 이유 |
 |---|---|---|
@@ -161,6 +179,8 @@ class ImageGenerator(Protocol):
 - 호출은 사용자 키로 직접. 생성 결과는 로컬 파일 저장소에 저장.
 - 인터페이스를 유지하면 추후 로컬 GPU(SD)로 교체 가능.
 
+> ⚠️ **무료 이미지 주의:** 캐릭터 얼굴·화풍의 시각적 통일성은 이 단계가 좌우한다. 무료 이미지 엔드포인트(예: Pollinations 등)는 IP-Adapter/LoRA 같은 일관성 제어를 제공하지 않는 경우가 많아 회차 간 얼굴이 달라질 위험이 크다. 진짜 무료이면서 일관성도 되는 선택지는 **로컬 GPU + SD**뿐(사용자 VRAM 필요). LLM 무료화(§6.0)와 달리 이미지 무료화는 통일성 리스크가 크므로, 1차 구현은 유료라도 일관성 기능을 제공하는 외부 API로 가고 무료 이미지는 별도 옵션으로 미룬다.
+
 ## 8. 패키징 & 배포
 
 - **UI**: React를 **정적 빌드(SPA)** 로 산출 → PyWebView가 로드. (Next.js를 쓸 경우 `output: 'export'` 정적 익스포트, 또는 Vite+React가 더 가벼움 — *미결, Vite 권장*.)
@@ -179,5 +199,5 @@ class ImageGenerator(Protocol):
 
 ## 10. 결정된 사항 / 미결 사항
 
-결정: 데스크톱 EXE / PyWebView+PyInstaller / Python(FastAPI 로컬)+React / LLM Claude / 이미지=외부 API / 타인 배포·사용자 자기 키.
-미결: 프론트 빌드 도구(Vite vs Next 정적 익스포트, Vite 권장) · 벡터 저장소 제품(sqlite-vec 권장) · 외부 이미지 API 공급자 · 자동 업데이트 방식.
+결정: 데스크톱 EXE / PyWebView+PyInstaller / Python(FastAPI 로컬)+React(Vite) / LLM=**Claude 기본 + Gemini 무료 토글**(제공자 추상화) / 이미지=외부 API(일관성 기능 제공) / 타인 배포·사용자 자기 키.
+미결: 벡터 저장소 제품(sqlite-vec 권장) · 외부 이미지 API 공급자 · 무료 이미지 옵션 여부 · 자동 업데이트 방식.
