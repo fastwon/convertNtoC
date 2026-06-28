@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Build artifacts (PyInstaller outputs to repo-root build/ and dist/)
+/build/
+/dist/
+
+# Node / frontend build
+node_modules/
+frontend/dist/
+
+# Secrets — never commit API keys
+.env
+*.env
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
