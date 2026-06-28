@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+from .api.settings import router as settings_router
 from .paths import static_dir
 
 
@@ -18,6 +19,8 @@ def create_app() -> FastAPI:
     @app.get("/api/health")
     def health() -> dict[str, str]:
         return {"status": "ok", "app": "convertN2C"}
+
+    app.include_router(settings_router)
 
     # Static SPA mount must be added LAST so /api/* routes take precedence.
     sdir = static_dir()
