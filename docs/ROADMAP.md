@@ -1,6 +1,6 @@
 # convertN2C — 단계별 개발 로드맵
 
-> **진행 상황:** P0 ✅ · P1 ✅ · P2 ✅ · **다음 → P3**
+> **진행 상황:** P0 ✅ · P1 ✅ · P2 ✅ · P3 ✅ · **다음 → P4**
 
 > 기반: [CLAUDE.md](../CLAUDE.md) · [docs/DESIGN.md](./DESIGN.md)
 > 대상: Windows 데스크톱 EXE (PyWebView + PyInstaller, Python/FastAPI 로컬 + React SPA, LLM=Claude, 이미지=외부 API, 타인 배포·사용자 자기 키).

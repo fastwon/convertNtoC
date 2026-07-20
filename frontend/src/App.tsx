@@ -1,29 +1,52 @@
-import { useCallback, useEffect, useState } from 'react'
-import { getStatus, type SettingsStatus } from './api'
+import { useState } from 'react'
+import Dashboard from './Dashboard'
+import ProjectDetail from './ProjectDetail'
 import Settings from './Settings'
 
+type View = { name: 'dashboard' } | { name: 'project'; id: string } | { name: 'settings' }
+
 export default function App() {
-  const [status, setStatus] = useState<SettingsStatus | null>(null)
-  const [error, setError] = useState('')
+  const [view, setView] = useState<View>({ name: 'dashboard' })
 
-  const refresh = useCallback(() => {
-    setError('')
-    getStatus()
-      .then(setStatus)
-      .catch((e: unknown) => setError(String(e)))
-  }, [])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  const navItem = (active: boolean) => ({
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: 15,
+    padding: '4px 8px',
+    color: active ? '#2d6cdf' : '#333',
+    fontWeight: active ? 700 : 400,
+  })
 
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', padding: 32, maxWidth: 720, margin: '0 auto' }}>
-      <h1>convertN2C</h1>
-      <p>소설 → 만화 변환 데스크톱 앱</p>
-      {error && <p style={{ color: 'crimson' }}>백엔드 연결 오류: {error}</p>}
-      {!status && !error && <p>불러오는 중…</p>}
-      {status && <Settings status={status} onChanged={refresh} />}
-    </main>
+    <div style={{ fontFamily: 'system-ui, sans-serif', color: '#222' }}>
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          padding: '12px 24px',
+          borderBottom: '1px solid #eee',
+        }}
+      >
+        <strong style={{ fontSize: 17 }}>convertN2C</strong>
+        <button style={navItem(view.name !== 'settings')} onClick={() => setView({ name: 'dashboard' })}>
+          대시보드
+        </button>
+        <button style={navItem(view.name === 'settings')} onClick={() => setView({ name: 'settings' })}>
+          설정
+        </button>
+      </header>
+
+      <main style={{ maxWidth: 820, margin: '0 auto', padding: 24 }}>
+        {view.name === 'dashboard' && (
+          <Dashboard onOpen={(id) => setView({ name: 'project', id })} />
+        )}
+        {view.name === 'project' && (
+          <ProjectDetail id={view.id} onBack={() => setView({ name: 'dashboard' })} />
+        )}
+        {view.name === 'settings' && <Settings />}
+      </main>
+    </div>
   )
 }
