@@ -10,17 +10,22 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api.settings import router as settings_router
+from .api.system import router as system_router
 from .paths import static_dir
+from .storage import db
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="convertN2C", docs_url=None, redoc_url=None, openapi_url=None)
+
+    db.init_db()  # ensure local schema exists before serving
 
     @app.get("/api/health")
     def health() -> dict[str, str]:
         return {"status": "ok", "app": "convertN2C"}
 
     app.include_router(settings_router)
+    app.include_router(system_router)
 
     # Static SPA mount must be added LAST so /api/* routes take precedence.
     sdir = static_dir()

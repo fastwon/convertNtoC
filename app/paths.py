@@ -6,6 +6,7 @@ app-data directory (never inside the bundle).
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -33,7 +34,12 @@ def static_dir() -> Path:
 
 
 def app_data_dir() -> Path:
-    """Per-user writable data root (DB, vector store, images). Created if missing."""
-    d = Path(user_data_dir(APP_NAME, appauthor=False))
+    """Per-user writable data root (DB, vector store, images). Created if missing.
+
+    Override with the CONVERTN2C_DATA_DIR env var (portable mode / tests) so the
+    real user data is never touched by throwaway runs.
+    """
+    override = os.environ.get("CONVERTN2C_DATA_DIR")
+    d = Path(override) if override else Path(user_data_dir(APP_NAME, appauthor=False))
     d.mkdir(parents=True, exist_ok=True)
     return d
