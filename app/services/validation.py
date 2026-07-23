@@ -36,6 +36,15 @@ def validate_anthropic_key(key: str) -> tuple[bool, str]:
         return False, "알 수 없는 오류로 검증에 실패했습니다"
 
 
+def validate_gemini_key(key: str) -> tuple[bool, str]:
+    """Validate via the Gemini provider (one cheap real call)."""
+    if not key or not key.strip():
+        return False, "키가 비어 있습니다"
+    from ..llm.gemini import GeminiProvider  # lazy: google-genai is heavy
+
+    return GeminiProvider(key.strip()).validate()
+
+
 def validate_image_key(key: str) -> tuple[bool, str]:
     """Image provider is undecided (P6); for now accept a non-empty key and store it.
 

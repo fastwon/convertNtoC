@@ -11,8 +11,9 @@ from keyring.errors import PasswordDeleteError
 SERVICE = "convertN2C"
 
 ANTHROPIC = "anthropic_api_key"
+GEMINI = "gemini_api_key"
 IMAGE = "image_api_key"
-VALID_NAMES = {ANTHROPIC, IMAGE}
+VALID_NAMES = {ANTHROPIC, GEMINI, IMAGE}
 
 
 def set_key(name: str, value: str) -> None:

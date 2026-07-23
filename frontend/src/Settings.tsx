@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { deleteKey, getStatus, saveKey, type SettingsStatus, type Slot } from './api'
+import {
+  deleteKey,
+  getStatus,
+  saveKey,
+  setFreeMode,
+  type SettingsStatus,
+  type Slot,
+} from './api'
 import { btnDanger, btnPrimary, card, input } from './ui'
 
 function KeyRow(props: {
@@ -80,6 +87,7 @@ function KeyRow(props: {
 export default function Settings() {
   const [status, setStatus] = useState<SettingsStatus | null>(null)
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
 
   const refresh = useCallback(() => {
     setError('')
@@ -91,23 +99,61 @@ export default function Settings() {
     refresh()
   }, [refresh])
 
+  async function toggleFree(enabled: boolean) {
+    setBusy(true)
+    try {
+      await setFreeMode(enabled)
+      refresh()
+    } finally {
+      setBusy(false)
+    }
+  }
+
   if (error) return <p style={{ color: 'crimson' }}>설정 로드 오류: {error}</p>
   if (!status) return <p>불러오는 중…</p>
 
   return (
     <section>
       <h2>설정 · API 키</h2>
-      <p style={{ color: status.ready ? 'green' : '#c47f00' }}>
-        {status.ready
-          ? '사용 준비 완료 ✓'
-          : 'LLM 기능(이후 단계)에는 Anthropic 키가 필요합니다. 지금은 없어도 개발/미리보기 가능.'}
-      </p>
+
+      <div style={card}>
+        <label style={{ display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={status.free_mode}
+            disabled={busy}
+            onChange={(e) => toggleFree(e.target.checked)}
+          />
+          <span>
+            <strong>무료 버전 사용 (Gemini)</strong>
+            <span style={{ color: '#888', fontSize: 13, marginLeft: 8 }}>
+              끄면 Claude(유료·고품질) 사용
+            </span>
+          </span>
+        </label>
+        <p style={{ marginTop: 10, color: status.ready ? 'green' : '#c47f00' }}>
+          {status.ready
+            ? `사용 준비 완료 ✓ (현재: ${status.active_provider === 'gemini' ? '무료 Gemini' : 'Claude'})`
+            : status.free_mode
+              ? '무료 모드입니다. 아래 Gemini 키를 입력하세요.'
+              : 'Claude 모드입니다. 아래 Anthropic 키를 입력하세요.'}
+        </p>
+      </div>
+
       <KeyRow
-        label="Anthropic API 키"
+        label="Gemini API 키 (무료)"
+        slot="gemini"
+        present={status.gemini.present}
+        masked={status.gemini.masked}
+        hint="무료 모드용. Google AI Studio(aistudio.google.com/apikey)에서 무료 발급. 저장 시 실제 호출로 검증합니다."
+        onChanged={refresh}
+      />
+      <KeyRow
+        label="Anthropic API 키 (Claude)"
         slot="anthropic"
         present={status.anthropic.present}
         masked={status.anthropic.masked}
-        hint="Claude 호출용. 저장 시 models.list 호출로 유효성을 검증합니다. (무료 Gemini 옵션은 이후 단계에서 추가)"
+        hint="Claude 모드용. 저장 시 models.list 호출로 검증합니다."
         onChanged={refresh}
       />
       <KeyRow

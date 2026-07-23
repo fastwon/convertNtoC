@@ -15,12 +15,27 @@ async function jsonOrThrow<T>(r: Response): Promise<T> {
 
 // ---- settings / keys ----
 export type KeySlot = { present: boolean; masked: string | null }
-export type SettingsStatus = { anthropic: KeySlot; image: KeySlot; ready: boolean }
+export type SettingsStatus = {
+  free_mode: boolean
+  active_provider: 'gemini' | 'claude'
+  anthropic: KeySlot
+  gemini: KeySlot
+  image: KeySlot
+  ready: boolean
+}
 export type SaveResult = { ok: boolean; message: string; masked: string | null }
-export type Slot = 'anthropic' | 'image'
+export type Slot = 'anthropic' | 'gemini' | 'image'
 
 export async function getStatus(): Promise<SettingsStatus> {
   return jsonOrThrow(await fetch('/api/settings/status'))
+}
+
+export async function setFreeMode(enabled: boolean): Promise<void> {
+  await fetch('/api/settings/free-mode', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  })
 }
 
 export async function saveKey(slot: Slot, key: string): Promise<SaveResult> {

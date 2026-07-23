@@ -100,6 +100,12 @@ CREATE TABLE IF NOT EXISTS vec_meta (
   dim INTEGER
 );
 INSERT OR IGNORE INTO vec_meta(id, dim) VALUES (1, NULL);
+
+-- app-wide non-secret settings (e.g. free_mode toggle). Secrets live in keyring.
+CREATE TABLE IF NOT EXISTS app_config (
+  key   TEXT PRIMARY KEY,
+  value TEXT
+);
 """
 
 
