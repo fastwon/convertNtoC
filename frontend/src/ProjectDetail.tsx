@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getProject, updateProject, type Project } from './api'
+import Characters from './Characters'
 import Episodes from './Episodes'
 import { btn, btnPrimary, card, input, label } from './ui'
 
@@ -13,6 +14,7 @@ export default function ProjectDetail({ id, onBack }: { id: string; onBack: () =
   const [bubble, setBubble] = useState('')
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [charRefresh, setCharRefresh] = useState(0)
 
   const load = useCallback(() => {
     setError('')
@@ -109,7 +111,8 @@ export default function ProjectDetail({ id, onBack }: { id: string; onBack: () =
             {saved && <span style={{ color: 'green' }}>저장됨 ✓</span>}
           </div>
 
-          <Episodes projectId={id} />
+          <Characters projectId={id} refreshKey={charRefresh} />
+          <Episodes projectId={id} onCharactersSaved={() => setCharRefresh((v) => v + 1)} />
         </>
       )}
     </section>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
+  confirmCharacters,
   createEpisode,
   deleteEpisode,
   extractCharacters,
@@ -10,14 +11,27 @@ import {
 } from './api'
 import { btn, btnDanger, btnPrimary, card, input, label } from './ui'
 
-function EpisodeRow({ ep, onChanged }: { ep: Episode; onChanged: () => void }) {
+// one editable row in the extraction-confirm list
+type Draft = { name: string; traits: string; is_new: boolean; save: boolean }
+
+function EpisodeRow({
+  ep,
+  onChanged,
+  onCharactersSaved,
+}: {
+  ep: Episode
+  onChanged: () => void
+  onCharactersSaved: () => void
+}) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState(ep.raw_text)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [extracting, setExtracting] = useState(false)
   const [extractError, setExtractError] = useState('')
-  const [result, setResult] = useState<ExtractedCharacter[] | null>(null)
+  const [drafts, setDrafts] = useState<Draft[] | null>(null)
+  const [savingBank, setSavingBank] = useState(false)
+  const [bankMsg, setBankMsg] = useState('')
 
   async function save() {
     setBusy(true)
@@ -43,10 +57,19 @@ function EpisodeRow({ ep, onChanged }: { ep: Episode; onChanged: () => void }) {
   async function extract() {
     setExtracting(true)
     setExtractError('')
-    setResult(null)
+    setDrafts(null)
+    setBankMsg('')
     try {
       const res = await extractCharacters(ep.id)
-      setResult(res.characters)
+      // new characters default to save; existing (already in bank) default off
+      setDrafts(
+        res.characters.map((c: ExtractedCharacter) => ({
+          name: c.name,
+          traits: c.traits,
+          is_new: c.is_new,
+          save: c.is_new,
+        })),
+      )
     } catch (e: unknown) {
       setExtractError(String(e instanceof Error ? e.message : e))
     } finally {
@@ -54,7 +77,30 @@ function EpisodeRow({ ep, onChanged }: { ep: Episode; onChanged: () => void }) {
     }
   }
 
+  function patchDraft(i: number, patch: Partial<Draft>) {
+    setDrafts((ds) => (ds ? ds.map((d, j) => (j === i ? { ...d, ...patch } : d)) : ds))
+  }
+
+  async function saveToBank() {
+    if (!drafts) return
+    setSavingBank(true)
+    setBankMsg('')
+    try {
+      const res = await confirmCharacters(
+        ep.id,
+        drafts.map((d) => ({ name: d.name, traits: d.traits, save: d.save })),
+      )
+      setBankMsg(`${res.saved.length}명을 캐릭터 뱅크에 저장했습니다.`)
+      onCharactersSaved()
+    } catch (e: unknown) {
+      setBankMsg(String(e instanceof Error ? e.message : e))
+    } finally {
+      setSavingBank(false)
+    }
+  }
+
   const chars = ep.raw_text.length
+  const saveCount = drafts?.filter((d) => d.save).length ?? 0
   return (
     <div style={card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -94,41 +140,59 @@ function EpisodeRow({ ep, onChanged }: { ep: Episode; onChanged: () => void }) {
           {extractError && (
             <p style={{ color: 'crimson', marginTop: 8 }}>{extractError}</p>
           )}
-          {result && (
+          {drafts && (
             <div style={{ marginTop: 12 }}>
-              <strong>추출된 인물 ({result.length})</strong>
+              <strong>추출된 인물 ({drafts.length}) — 확인 후 저장</strong>
               <p style={{ color: '#aaa', fontSize: 12, margin: '2px 0 8px' }}>
-                (다음 단계에서 확인·수정 후 캐릭터 뱅크에 저장하는 기능이 추가됩니다)
+                이름·특징을 수정하고, 저장할 인물만 체크하세요. (기존 인물은 기본 해제)
               </p>
-              {result.length === 0 && (
+              {drafts.length === 0 && (
                 <p style={{ color: '#888' }}>인식된 이름있는 인물이 없습니다.</p>
               )}
-              {result.map((ch, i) => (
+              {drafts.map((d, i) => (
                 <div
                   key={i}
-                  style={{
-                    border: '1px solid #eee',
-                    borderRadius: 6,
-                    padding: 10,
-                    marginBottom: 6,
-                  }}
+                  style={{ border: '1px solid #eee', borderRadius: 6, padding: 10, marginBottom: 6 }}
                 >
-                  <span style={{ fontWeight: 700 }}>{ch.name}</span>
-                  <span
-                    style={{
-                      marginLeft: 8,
-                      fontSize: 12,
-                      padding: '1px 6px',
-                      borderRadius: 4,
-                      background: ch.is_new ? '#e8f4ff' : '#eee',
-                      color: ch.is_new ? '#1e6fd0' : '#666',
-                    }}
-                  >
-                    {ch.is_new ? '신규' : '기존'}
-                  </span>
-                  <div style={{ color: '#555', fontSize: 13, marginTop: 4 }}>{ch.traits}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={d.save}
+                      onChange={(e) => patchDraft(i, { save: e.target.checked })}
+                    />
+                    <input
+                      style={{ ...input, flex: 1 }}
+                      value={d.name}
+                      onChange={(e) => patchDraft(i, { name: e.target.value })}
+                    />
+                    <span
+                      style={{
+                        fontSize: 12,
+                        padding: '1px 6px',
+                        borderRadius: 4,
+                        background: d.is_new ? '#e8f4ff' : '#eee',
+                        color: d.is_new ? '#1e6fd0' : '#666',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {d.is_new ? '신규' : '기존'}
+                    </span>
+                  </div>
+                  <textarea
+                    style={{ ...input, minHeight: 40, marginTop: 6, resize: 'vertical' }}
+                    value={d.traits}
+                    onChange={(e) => patchDraft(i, { traits: e.target.value })}
+                  />
                 </div>
               ))}
+              {drafts.length > 0 && (
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
+                  <button style={btnPrimary} onClick={saveToBank} disabled={savingBank || saveCount === 0}>
+                    선택 {saveCount}명 뱅크에 저장
+                  </button>
+                  {bankMsg && <span style={{ color: '#2d7d2d' }}>{bankMsg}</span>}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -137,7 +201,13 @@ function EpisodeRow({ ep, onChanged }: { ep: Episode; onChanged: () => void }) {
   )
 }
 
-export default function Episodes({ projectId }: { projectId: string }) {
+export default function Episodes({
+  projectId,
+  onCharactersSaved,
+}: {
+  projectId: string
+  onCharactersSaved: () => void
+}) {
   const [episodes, setEpisodes] = useState<Episode[] | null>(null)
   const [error, setError] = useState('')
   const [text, setText] = useState('')
@@ -196,7 +266,12 @@ export default function Episodes({ projectId }: { projectId: string }) {
         <p style={{ color: '#888' }}>아직 회차가 없습니다. 위에서 1화를 올려보세요.</p>
       )}
       {episodes?.map((ep) => (
-        <EpisodeRow key={ep.id} ep={ep} onChanged={refresh} />
+        <EpisodeRow
+          key={ep.id}
+          ep={ep}
+          onChanged={refresh}
+          onCharactersSaved={onCharactersSaved}
+        />
       ))}
     </section>
   )

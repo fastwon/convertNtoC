@@ -158,6 +158,21 @@ def list_characters(project_id: str) -> list[Character]:
     return [_character(r) for r in rows]
 
 
+def update_character(character_id: str, **fields: Any) -> Character | None:
+    allowed = {"name", "traits", "ref_image_path"}
+    sets, vals = [], []
+    for key, val in fields.items():
+        if key not in allowed:
+            raise ValueError(f"수정 불가 필드: {key}")
+        sets.append(f"{key} = ?")
+        vals.append(_dumps(val) if key == "traits" else val)
+    if sets:
+        vals.append(character_id)
+        with db.connect() as conn:
+            conn.execute(f"UPDATE character SET {', '.join(sets)} WHERE id = ?", vals)
+    return get_character(character_id)
+
+
 def delete_character(character_id: str) -> None:
     char = get_character(character_id)
     with db.connect() as conn:

@@ -152,3 +152,58 @@ export async function extractCharacters(episodeId: string): Promise<ExtractionRe
     await fetch(`/api/episodes/${episodeId}/extract-characters`, { method: 'POST' }),
   )
 }
+
+// ---- character bank ----
+export type Character = {
+  id: string
+  project_id: string
+  name: string
+  traits: { description?: string } | null
+  ref_image_path: string | null
+  created_at: string
+}
+
+export type ConfirmItem = { name: string; traits: string; save: boolean }
+
+export async function listCharacters(projectId: string): Promise<Character[]> {
+  return jsonOrThrow(await fetch(`/api/projects/${projectId}/characters`))
+}
+export async function confirmCharacters(
+  episodeId: string,
+  characters: ConfirmItem[],
+): Promise<{ saved: Character[] }> {
+  return jsonOrThrow(
+    await fetch(`/api/episodes/${episodeId}/confirm-characters`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ characters }),
+    }),
+  )
+}
+export async function updateCharacter(
+  id: string,
+  patch: { name?: string; traits?: string },
+): Promise<Character> {
+  return jsonOrThrow(
+    await fetch(`/api/characters/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }),
+  )
+}
+export async function deleteCharacter(id: string): Promise<void> {
+  const r = await fetch(`/api/characters/${id}`, { method: 'DELETE' })
+  if (!r.ok) throw new Error('캐릭터 삭제 실패')
+}
+export async function uploadRefImage(id: string, file: File): Promise<Character> {
+  const fd = new FormData()
+  fd.append('file', file)
+  return jsonOrThrow(
+    await fetch(`/api/characters/${id}/ref-image`, { method: 'POST', body: fd }),
+  )
+}
+export function refImageUrl(id: string, version: number | string = ''): string {
+  // pass a changing `version` (e.g. Date.now()) after re-upload to bust the cache
+  return `/api/characters/${id}/ref-image?v=${encodeURIComponent(String(version))}`
+}
