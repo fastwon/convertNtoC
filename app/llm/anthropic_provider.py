@@ -7,9 +7,12 @@ services that call this (opus for reasoning, haiku for classification).
 """
 from __future__ import annotations
 
+from typing import Any
+
 import anthropic
 
 from .base import LLMError
+from .util import parse_json_lenient
 
 DEFAULT_MODEL = "claude-sonnet-4-6"
 
@@ -45,3 +48,30 @@ class AnthropicProvider:
         except Exception as e:  # noqa: BLE001
             raise LLMError("Claude 호출 실패") from e
         return "".join(b.text for b in msg.content if b.type == "text")
+
+    def generate_json(
+        self,
+        prompt: str,
+        *,
+        system: str | None = None,
+        schema: dict | None = None,
+        max_tokens: int = 4096,
+    ) -> Any:
+        kwargs: dict = {
+            "model": self._model,
+            "max_tokens": max_tokens,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        if system:
+            kwargs["system"] = system
+        if schema is not None:
+            kwargs["output_config"] = {"format": {"type": "json_schema", "schema": schema}}
+        try:
+            msg = self._client.messages.create(**kwargs)
+        except Exception as e:  # noqa: BLE001
+            raise LLMError("Claude 호출 실패") from e
+        text = "".join(b.text for b in msg.content if b.type == "text")
+        try:
+            return parse_json_lenient(text)
+        except Exception as e:  # noqa: BLE001
+            raise LLMError("Claude가 올바른 JSON을 반환하지 않았습니다") from e

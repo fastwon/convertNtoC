@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   createEpisode,
   deleteEpisode,
+  extractCharacters,
   listEpisodes,
   updateEpisodeText,
   type Episode,
+  type ExtractedCharacter,
 } from './api'
 import { btn, btnDanger, btnPrimary, card, input, label } from './ui'
 
@@ -13,6 +15,9 @@ function EpisodeRow({ ep, onChanged }: { ep: Episode; onChanged: () => void }) {
   const [text, setText] = useState(ep.raw_text)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [extracting, setExtracting] = useState(false)
+  const [extractError, setExtractError] = useState('')
+  const [result, setResult] = useState<ExtractedCharacter[] | null>(null)
 
   async function save() {
     setBusy(true)
@@ -33,6 +38,19 @@ function EpisodeRow({ ep, onChanged }: { ep: Episode; onChanged: () => void }) {
       onChanged()
     } finally {
       setBusy(false)
+    }
+  }
+  async function extract() {
+    setExtracting(true)
+    setExtractError('')
+    setResult(null)
+    try {
+      const res = await extractCharacters(ep.id)
+      setResult(res.characters)
+    } catch (e: unknown) {
+      setExtractError(String(e instanceof Error ? e.message : e))
+    } finally {
+      setExtracting(false)
     }
   }
 
@@ -68,10 +86,51 @@ function EpisodeRow({ ep, onChanged }: { ep: Episode; onChanged: () => void }) {
               본문 저장
             </button>
             {saved && <span style={{ color: 'green' }}>저장됨 ✓</span>}
-            <span style={{ color: '#aaa', fontSize: 12 }}>
-              (인물 추출은 다음 단계에서 추가됩니다)
-            </span>
+            <button style={btn} onClick={extract} disabled={extracting || !ep.raw_text.trim()}>
+              {extracting ? '인물 추출 중…' : '인물 추출'}
+            </button>
           </div>
+
+          {extractError && (
+            <p style={{ color: 'crimson', marginTop: 8 }}>{extractError}</p>
+          )}
+          {result && (
+            <div style={{ marginTop: 12 }}>
+              <strong>추출된 인물 ({result.length})</strong>
+              <p style={{ color: '#aaa', fontSize: 12, margin: '2px 0 8px' }}>
+                (다음 단계에서 확인·수정 후 캐릭터 뱅크에 저장하는 기능이 추가됩니다)
+              </p>
+              {result.length === 0 && (
+                <p style={{ color: '#888' }}>인식된 이름있는 인물이 없습니다.</p>
+              )}
+              {result.map((ch, i) => (
+                <div
+                  key={i}
+                  style={{
+                    border: '1px solid #eee',
+                    borderRadius: 6,
+                    padding: 10,
+                    marginBottom: 6,
+                  }}
+                >
+                  <span style={{ fontWeight: 700 }}>{ch.name}</span>
+                  <span
+                    style={{
+                      marginLeft: 8,
+                      fontSize: 12,
+                      padding: '1px 6px',
+                      borderRadius: 4,
+                      background: ch.is_new ? '#e8f4ff' : '#eee',
+                      color: ch.is_new ? '#1e6fd0' : '#666',
+                    }}
+                  >
+                    {ch.is_new ? '신규' : '기존'}
+                  </span>
+                  <div style={{ color: '#555', fontSize: 13, marginTop: 4 }}>{ch.traits}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

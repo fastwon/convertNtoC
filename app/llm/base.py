@@ -7,7 +7,7 @@ P4b defines low-level text generation + key validation. Structured extraction
 """
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 class LLMError(Exception):
@@ -23,4 +23,16 @@ class LLMProvider(Protocol):
         ...
 
     def generate_text(self, prompt: str, *, system: str | None = None, max_tokens: int = 2048) -> str:
+        ...
+
+    def generate_json(
+        self,
+        prompt: str,
+        *,
+        system: str | None = None,
+        schema: dict | None = None,
+        max_tokens: int = 4096,
+    ) -> Any:
+        """Return parsed JSON. `schema` (JSON Schema) is enforced where the
+        provider supports it; otherwise the prompt must describe the shape."""
         ...

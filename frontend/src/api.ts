@@ -137,3 +137,18 @@ export async function deleteEpisode(episodeId: string): Promise<void> {
   const r = await fetch(`/api/episodes/${episodeId}`, { method: 'DELETE' })
   if (!r.ok) throw new Error('회차 삭제 실패')
 }
+
+// ---- character extraction ----
+export type ExtractedCharacter = {
+  name: string
+  is_new: boolean
+  matched_character_id: string | null
+  traits: string
+}
+export type ExtractionResult = { provider: string; characters: ExtractedCharacter[] }
+
+export async function extractCharacters(episodeId: string): Promise<ExtractionResult> {
+  return jsonOrThrow(
+    await fetch(`/api/episodes/${episodeId}/extract-characters`, { method: 'POST' }),
+  )
+}
