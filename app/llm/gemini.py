@@ -13,8 +13,10 @@ from google.genai import types
 from .base import LLMError
 from .util import parse_json_lenient
 
-# Free-tier flash model; good enough for extraction/summarization.
-DEFAULT_MODEL = "gemini-2.0-flash"
+# Free-tier flash model. "gemini-flash-latest" tracks the current free flash and
+# has proven more reliably available on free keys than the pinned gemini-2.0-flash
+# (which can 429 with an exhausted per-model free quota).
+DEFAULT_MODEL = "gemini-flash-latest"
 
 
 def _friendly_error(e: Exception) -> str:
