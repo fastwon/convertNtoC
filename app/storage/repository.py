@@ -196,6 +196,16 @@ def list_episodes(project_id: str) -> list[Episode]:
     return [_episode(r) for r in rows]
 
 
+def update_episode_text(episode_id: str, raw_text: str) -> None:
+    with db.connect() as conn:
+        conn.execute("UPDATE episode SET raw_text = ? WHERE id = ?", (raw_text, episode_id))
+
+
+def delete_episode(episode_id: str) -> None:
+    with db.connect() as conn:
+        conn.execute("DELETE FROM episode WHERE id = ?", (episode_id,))  # cascades panels
+
+
 def set_episode_summary(episode_id: str, summary: str) -> None:
     with db.connect() as conn:
         conn.execute("UPDATE episode SET summary = ? WHERE id = ?", (summary, episode_id))

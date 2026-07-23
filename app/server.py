@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+from .api.episodes import router as episodes_router
 from .api.projects import router as projects_router
 from .api.settings import router as settings_router
 from .api.system import router as system_router
@@ -28,6 +29,7 @@ def create_app() -> FastAPI:
     app.include_router(settings_router)
     app.include_router(system_router)
     app.include_router(projects_router)
+    app.include_router(episodes_router)
 
     # Static SPA mount must be added LAST so /api/* routes take precedence.
     sdir = static_dir()

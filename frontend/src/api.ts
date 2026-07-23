@@ -82,3 +82,43 @@ export async function deleteProject(id: string): Promise<void> {
   const r = await fetch(`/api/projects/${id}`, { method: 'DELETE' })
   if (!r.ok) throw new Error('삭제 실패')
 }
+
+// ---- episodes ----
+export type Episode = {
+  id: string
+  project_id: string
+  number: number
+  raw_text: string
+  summary: string | null
+  status: string
+  created_at: string
+}
+
+export async function listEpisodes(projectId: string): Promise<Episode[]> {
+  return jsonOrThrow(await fetch(`/api/projects/${projectId}/episodes`))
+}
+export async function createEpisode(
+  projectId: string,
+  body: { number?: number; raw_text?: string },
+): Promise<Episode> {
+  return jsonOrThrow(
+    await fetch(`/api/projects/${projectId}/episodes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  )
+}
+export async function updateEpisodeText(episodeId: string, raw_text: string): Promise<Episode> {
+  return jsonOrThrow(
+    await fetch(`/api/episodes/${episodeId}/text`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw_text }),
+    }),
+  )
+}
+export async function deleteEpisode(episodeId: string): Promise<void> {
+  const r = await fetch(`/api/episodes/${episodeId}`, { method: 'DELETE' })
+  if (!r.ok) throw new Error('회차 삭제 실패')
+}

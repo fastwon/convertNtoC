@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getProject, updateProject, type Project } from './api'
+import Episodes from './Episodes'
 import { btn, btnPrimary, card, input, label } from './ui'
 
 export default function ProjectDetail({ id, onBack }: { id: string; onBack: () => void }) {
@@ -107,6 +108,8 @@ export default function ProjectDetail({ id, onBack }: { id: string; onBack: () =
             </button>
             {saved && <span style={{ color: 'green' }}>저장됨 ✓</span>}
           </div>
+
+          <Episodes projectId={id} />
         </>
       )}
     </section>
