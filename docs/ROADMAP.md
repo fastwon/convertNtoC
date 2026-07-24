@@ -17,8 +17,8 @@
 |---|---|---|
 | 프론트 빌드 도구 | **확정: Vite + React** (SPA) | P0 |
 | LLM 제공자 | **확정: Claude 기본 + Gemini 무료 토글** (추상화) | P4 |
-| 벡터 저장소 | 권장: sqlite-vec (미확정) | P2 |
-| 외부 이미지 API 공급자 | 미정 (Replicate / fal 등) | P6 |
+| 벡터 저장소 | **확정: sqlite-vec** | P2 |
+| 이미지 공급자 | **확정: Gemini 이미지(무료, 기본) + 외부 API(Replicate/fal) 토글** — ImageGenerator 추상화 | P6 |
 | 자동 업데이트 방식 | 미정 | P8 |
 
 ---
