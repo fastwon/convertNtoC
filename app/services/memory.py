@@ -73,11 +73,27 @@ def build_global_memory(project_id: str, before_episode_number: int | None = Non
     return "\n".join(parts)
 
 
-SUMMARY_INSTRUCTION = (
-    "위 회차 본문을 4~6문장으로 요약하라. "
-    "핵심 사건, 인물의 행동과 관계 변화, 다음 회차로 이어지는 실마리를 반드시 포함하라. "
-    "설정 나열이 아니라 줄거리 흐름으로 쓰고, 요약문만 출력하라."
-)
+def _summary_instruction(text_len: int) -> str:
+    """Scale the target length to the source. A fixed '4~6 sentences' makes the
+    model pad out short chapters with invented plot — and because summaries
+    accumulate into global memory, that fabrication would harden into 'fact'
+    for every later episode.
+    """
+    if text_len < 300:
+        target = "1~2문장"
+    elif text_len < 1500:
+        target = "2~4문장"
+    else:
+        target = "4~6문장"
+    return (
+        f"위 회차 본문을 {target}으로 요약하라.\n"
+        "규칙:\n"
+        "- 본문에 실제로 서술된 사실만 쓴다. 추측, 전개 예상, 각색, 분위기 과장을 더하지 마라.\n"
+        "- 본문에 없는 사건·감정·관계를 지어내지 마라.\n"
+        "- 요약은 반드시 원문보다 짧아야 한다.\n"
+        "- 핵심 사건과 인물의 행동·관계 변화 위주로, 줄거리 흐름으로 쓴다.\n"
+        "- 요약문만 출력한다."
+    )
 
 MAX_TEXT_CHARS = 20000
 
@@ -95,9 +111,8 @@ def summarize_episode(episode_id: str) -> dict:
 
     # stable cached prefix: everything before this episode
     system = build_global_memory(episode.project_id, before_episode_number=episode.number)
-    prompt = (
-        f"[{episode.number}화 본문]\n{episode.raw_text[:MAX_TEXT_CHARS]}\n\n{SUMMARY_INSTRUCTION}"
-    )
+    text = episode.raw_text[:MAX_TEXT_CHARS]
+    prompt = f"[{episode.number}화 본문]\n{text}\n\n{_summary_instruction(len(text))}"
 
     provider = factory.get_provider()
     summary = provider.generate_text(prompt, system=system, max_tokens=1024).strip()
