@@ -26,6 +26,20 @@ class Character:
 
 
 @dataclass
+class Appearance:
+    """One look of a character at a point in the story (present, flashback, ...)."""
+
+    id: str
+    character_id: str
+    label: str
+    description: str
+    ref_image_path: str | None
+    source_episode_number: int | None
+    is_default: bool
+    created_at: str
+
+
+@dataclass
 class Episode:
     id: str
     project_id: str

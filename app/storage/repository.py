@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from . import db, files, vectors
-from .models import Character, Episode, GlobalMemory, Panel, Project
+from .models import Appearance, Character, Episode, GlobalMemory, Panel, Project
 
 
 def _now() -> str:
@@ -46,6 +46,15 @@ def _character(r: Any) -> Character:
         id=r["id"], project_id=r["project_id"], name=r["name"],
         traits=_loads(r["traits"]), ref_image_path=r["ref_image_path"],
         created_at=r["created_at"],
+    )
+
+
+def _appearance(r: Any) -> Appearance:
+    return Appearance(
+        id=r["id"], character_id=r["character_id"], label=r["label"],
+        description=r["description"], ref_image_path=r["ref_image_path"],
+        source_episode_number=r["source_episode_number"],
+        is_default=bool(r["is_default"]), created_at=r["created_at"],
     )
 
 
@@ -134,14 +143,115 @@ def create_character(
     traits: dict[str, Any] | None = None,
     ref_image_path: str | None = None,
 ) -> Character:
+    """Create a character plus its '기본' appearance (every character has ≥1 look)."""
     cid, now = _new_id(), _now()
+    description = ""
+    if isinstance(traits, dict):
+        description = str(traits.get("description", "")).strip()
     with db.connect() as conn:
         conn.execute(
             "INSERT INTO character(id, project_id, name, traits, ref_image_path, created_at)"
             " VALUES (?, ?, ?, ?, ?, ?)",
             (cid, project_id, name, _dumps(traits), ref_image_path, now),
         )
+        conn.execute(
+            "INSERT INTO character_appearance"
+            "(id, character_id, label, description, ref_image_path,"
+            " source_episode_number, is_default, created_at)"
+            " VALUES (?, ?, '기본', ?, ?, NULL, 1, ?)",
+            (_new_id(), cid, description, ref_image_path, now),
+        )
     return get_character(cid)  # type: ignore[return-value]
+
+
+# --- Appearances (per-character looks over time) ----------------------------
+
+def list_appearances(character_id: str) -> list[Appearance]:
+    with db.connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM character_appearance WHERE character_id = ?"
+            " ORDER BY is_default DESC, created_at",
+            (character_id,),
+        ).fetchall()
+    return [_appearance(r) for r in rows]
+
+
+def get_appearance(appearance_id: str) -> Appearance | None:
+    with db.connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM character_appearance WHERE id = ?", (appearance_id,)
+        ).fetchone()
+    return _appearance(row) if row else None
+
+
+def create_appearance(
+    character_id: str,
+    label: str,
+    description: str = "",
+    source_episode_number: int | None = None,
+) -> Appearance:
+    aid, now = _new_id(), _now()
+    with db.connect() as conn:
+        conn.execute(
+            "INSERT INTO character_appearance"
+            "(id, character_id, label, description, ref_image_path,"
+            " source_episode_number, is_default, created_at)"
+            " VALUES (?, ?, ?, ?, NULL, ?, 0, ?)",
+            (aid, character_id, label, description, source_episode_number, now),
+        )
+    return get_appearance(aid)  # type: ignore[return-value]
+
+
+def update_appearance(appearance_id: str, **fields: Any) -> Appearance | None:
+    allowed = {"label", "description", "ref_image_path", "source_episode_number"}
+    sets, vals = [], []
+    for key, val in fields.items():
+        if key not in allowed:
+            raise ValueError(f"수정 불가 필드: {key}")
+        sets.append(f"{key} = ?")
+        vals.append(val)
+    if sets:
+        vals.append(appearance_id)
+        with db.connect() as conn:
+            conn.execute(
+                f"UPDATE character_appearance SET {', '.join(sets)} WHERE id = ?", vals
+            )
+    return get_appearance(appearance_id)
+
+
+def set_default_appearance(character_id: str, appearance_id: str) -> None:
+    with db.connect() as conn:
+        conn.execute(
+            "UPDATE character_appearance SET is_default = 0 WHERE character_id = ?",
+            (character_id,),
+        )
+        conn.execute(
+            "UPDATE character_appearance SET is_default = 1 WHERE id = ? AND character_id = ?",
+            (appearance_id, character_id),
+        )
+
+
+def delete_appearance(appearance_id: str) -> None:
+    ap = get_appearance(appearance_id)
+    if ap is None:
+        return
+    with db.connect() as conn:
+        conn.execute("DELETE FROM character_appearance WHERE id = ?", (appearance_id,))
+        # never leave a character without a default look
+        if ap.is_default:
+            row = conn.execute(
+                "SELECT id FROM character_appearance WHERE character_id = ?"
+                " ORDER BY created_at LIMIT 1",
+                (ap.character_id,),
+            ).fetchone()
+            if row:
+                conn.execute(
+                    "UPDATE character_appearance SET is_default = 1 WHERE id = ?", (row["id"],)
+                )
+    if ap.ref_image_path:
+        path = files.resolve(ap.ref_image_path)
+        if path.exists():
+            path.unlink()
 
 
 def get_character(character_id: str) -> Character | None:
@@ -175,11 +285,18 @@ def update_character(character_id: str, **fields: Any) -> Character | None:
 
 def delete_character(character_id: str) -> None:
     char = get_character(character_id)
+    appearances = list_appearances(character_id)
     with db.connect() as conn:
-        conn.execute("DELETE FROM character WHERE id = ?", (character_id,))
+        conn.execute("DELETE FROM character WHERE id = ?", (character_id,))  # cascades appearances
     vectors.delete(character_id)
-    if char and char.ref_image_path:
-        p = files.resolve(char.ref_image_path)
+    # remove image files for every look (FK cascade drops rows, not files)
+    paths = [a.ref_image_path for a in appearances]
+    if char:
+        paths.append(char.ref_image_path)
+    for rel in paths:
+        if not rel:
+            continue
+        p = files.resolve(rel)
         if p.exists():
             p.unlink()
 

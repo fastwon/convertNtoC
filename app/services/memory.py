@@ -43,16 +43,28 @@ def build_global_memory(project_id: str, before_episode_number: int | None = Non
     parts.append("\n## 세계관")
     parts.append(world or "(미지정)")
 
-    # 3) character bank — stable order (repository sorts by created_at)
+    # 3) character bank — stable order (repository sorts by created_at).
+    # Each character can have several looks (present / flashback / after injury);
+    # list them all so the model knows which look a given scene calls for.
     parts.append("\n## 캐릭터 뱅크")
     chars = repo.list_characters(project_id)
     if chars:
         for c in chars:
-            desc = ""
-            if isinstance(c.traits, dict):
-                desc = str(c.traits.get("description", "")).strip()
-            has_ref = "참조이미지 있음" if c.ref_image_path else "참조이미지 없음"
-            parts.append(f"- {c.name}: {desc or '(특징 미기재)'} [{has_ref}]")
+            parts.append(f"- {c.name}")
+            looks = repo.list_appearances(c.id)
+            if not looks:
+                parts.append("  - (등록된 모습 없음)")
+                continue
+            for a in looks:
+                tags = []
+                if a.is_default:
+                    tags.append("기본")
+                if a.source_episode_number is not None:
+                    tags.append(f"{a.source_episode_number}화")
+                tags.append("참조이미지 있음" if a.ref_image_path else "참조이미지 없음")
+                parts.append(
+                    f"  - [{a.label}] {a.description or '(특징 미기재)'} ({', '.join(tags)})"
+                )
     else:
         parts.append("(아직 등록된 캐릭터 없음)")
 

@@ -122,11 +122,77 @@ def delete_character(character_id: str) -> dict:
     return {"ok": True}
 
 
-# --- reference image --------------------------------------------------------
+# --- appearances (looks over time) ------------------------------------------
 
-@router.post("/api/characters/{character_id}/ref-image")
-async def upload_ref_image(character_id: str, file: UploadFile = File(...)) -> dict:
-    ch = repo.get_character(character_id)
+class AppearanceCreate(BaseModel):
+    label: str
+    description: str = ""
+    source_episode_number: int | None = None
+
+
+class AppearancePatch(BaseModel):
+    label: str | None = None
+    description: str | None = None
+    source_episode_number: int | None = None
+
+
+@router.get("/api/characters/{character_id}/appearances")
+def list_appearances(character_id: str) -> list[dict]:
+    if repo.get_character(character_id) is None:
+        raise HTTPException(status_code=404, detail="캐릭터를 찾을 수 없습니다")
+    return [asdict(a) for a in repo.list_appearances(character_id)]
+
+
+@router.post("/api/characters/{character_id}/appearances")
+def create_appearance(character_id: str, body: AppearanceCreate) -> dict:
+    if repo.get_character(character_id) is None:
+        raise HTTPException(status_code=404, detail="캐릭터를 찾을 수 없습니다")
+    if not body.label.strip():
+        raise HTTPException(status_code=400, detail="모습 이름(라벨)을 입력하세요")
+    a = repo.create_appearance(
+        character_id, body.label.strip(), body.description.strip(), body.source_episode_number
+    )
+    return asdict(a)
+
+
+@router.patch("/api/appearances/{appearance_id}")
+def update_appearance(appearance_id: str, body: AppearancePatch) -> dict:
+    if repo.get_appearance(appearance_id) is None:
+        raise HTTPException(status_code=404, detail="모습을 찾을 수 없습니다")
+    fields = body.model_dump(exclude_unset=True)
+    if "label" in fields and not str(fields["label"]).strip():
+        raise HTTPException(status_code=400, detail="모습 이름은 비울 수 없습니다")
+    return asdict(repo.update_appearance(appearance_id, **fields))
+
+
+@router.post("/api/appearances/{appearance_id}/default")
+def make_default(appearance_id: str) -> dict:
+    ap = repo.get_appearance(appearance_id)
+    if ap is None:
+        raise HTTPException(status_code=404, detail="모습을 찾을 수 없습니다")
+    repo.set_default_appearance(ap.character_id, appearance_id)
+    return {"ok": True}
+
+
+@router.delete("/api/appearances/{appearance_id}")
+def delete_appearance(appearance_id: str) -> dict:
+    ap = repo.get_appearance(appearance_id)
+    if ap is None:
+        raise HTTPException(status_code=404, detail="모습을 찾을 수 없습니다")
+    if len(repo.list_appearances(ap.character_id)) <= 1:
+        raise HTTPException(status_code=400, detail="마지막 모습은 삭제할 수 없습니다")
+    repo.delete_appearance(appearance_id)
+    return {"ok": True}
+
+
+# --- reference image (per appearance) ---------------------------------------
+
+@router.post("/api/appearances/{appearance_id}/ref-image")
+async def upload_ref_image(appearance_id: str, file: UploadFile = File(...)) -> dict:
+    ap = repo.get_appearance(appearance_id)
+    if ap is None:
+        raise HTTPException(status_code=404, detail="모습을 찾을 수 없습니다")
+    ch = repo.get_character(ap.character_id)
     if ch is None:
         raise HTTPException(status_code=404, detail="캐릭터를 찾을 수 없습니다")
     ext = os.path.splitext(file.filename or "")[1].lower()
@@ -135,17 +201,16 @@ async def upload_ref_image(character_id: str, file: UploadFile = File(...)) -> d
     data = await file.read()
     if not data:
         raise HTTPException(status_code=400, detail="빈 파일입니다")
-    rel = files.save_bytes(ch.project_id, "characters", f"{character_id}{ext}", data)
-    updated = repo.update_character(character_id, ref_image_path=rel)
-    return asdict(updated)
+    rel = files.save_bytes(ch.project_id, "characters", f"{appearance_id}{ext}", data)
+    return asdict(repo.update_appearance(appearance_id, ref_image_path=rel))
 
 
-@router.get("/api/characters/{character_id}/ref-image")
-def get_ref_image(character_id: str) -> FileResponse:
-    ch = repo.get_character(character_id)
-    if ch is None or not ch.ref_image_path:
+@router.get("/api/appearances/{appearance_id}/ref-image")
+def get_ref_image(appearance_id: str) -> FileResponse:
+    ap = repo.get_appearance(appearance_id)
+    if ap is None or not ap.ref_image_path:
         raise HTTPException(status_code=404, detail="참조 이미지가 없습니다")
-    path = files.resolve(ch.ref_image_path)
+    path = files.resolve(ap.ref_image_path)
     if not path.exists():
         raise HTTPException(status_code=404, detail="이미지 파일을 찾을 수 없습니다")
     return FileResponse(path)

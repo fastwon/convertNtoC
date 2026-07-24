@@ -202,11 +202,60 @@ export async function deleteCharacter(id: string): Promise<void> {
   const r = await fetch(`/api/characters/${id}`, { method: 'DELETE' })
   if (!r.ok) throw new Error('캐릭터 삭제 실패')
 }
-export async function uploadRefImage(id: string, file: File): Promise<Character> {
+// ---- appearances (a character's looks over time) ----
+export type Appearance = {
+  id: string
+  character_id: string
+  label: string
+  description: string
+  ref_image_path: string | null
+  source_episode_number: number | null
+  is_default: boolean
+  created_at: string
+}
+
+export async function listAppearances(characterId: string): Promise<Appearance[]> {
+  return jsonOrThrow(await fetch(`/api/characters/${characterId}/appearances`))
+}
+export async function createAppearance(
+  characterId: string,
+  body: { label: string; description?: string; source_episode_number?: number | null },
+): Promise<Appearance> {
+  return jsonOrThrow(
+    await fetch(`/api/characters/${characterId}/appearances`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  )
+}
+export async function updateAppearance(
+  id: string,
+  patch: { label?: string; description?: string; source_episode_number?: number | null },
+): Promise<Appearance> {
+  return jsonOrThrow(
+    await fetch(`/api/appearances/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }),
+  )
+}
+export async function makeDefaultAppearance(id: string): Promise<void> {
+  await fetch(`/api/appearances/${id}/default`, { method: 'POST' })
+}
+export async function deleteAppearance(id: string): Promise<void> {
+  const r = await fetch(`/api/appearances/${id}`, { method: 'DELETE' })
+  if (!r.ok) {
+    const d = (await r.json().catch(() => ({}))) as { detail?: string }
+    throw new Error(d.detail ?? '모습 삭제 실패')
+  }
+}
+export async function uploadRefImage(appearanceId: string, file: File): Promise<Appearance> {
   const fd = new FormData()
   fd.append('file', file)
   return jsonOrThrow(
-    await fetch(`/api/characters/${id}/ref-image`, { method: 'POST', body: fd }),
+    await fetch(`/api/appearances/${appearanceId}/ref-image`, { method: 'POST', body: fd }),
   )
 }
 // ---- global memory ----
@@ -244,7 +293,7 @@ export async function summarizeEpisode(episodeId: string): Promise<SummarizeResu
   return jsonOrThrow(await fetch(`/api/episodes/${episodeId}/summarize`, { method: 'POST' }))
 }
 
-export function refImageUrl(id: string, version: number | string = ''): string {
+export function refImageUrl(appearanceId: string, version: number | string = ''): string {
   // pass a changing `version` (e.g. Date.now()) after re-upload to bust the cache
-  return `/api/characters/${id}/ref-image?v=${encodeURIComponent(String(version))}`
+  return `/api/appearances/${appearanceId}/ref-image?v=${encodeURIComponent(String(version))}`
 }
