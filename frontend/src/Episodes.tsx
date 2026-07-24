@@ -5,9 +5,11 @@ import {
   deleteEpisode,
   extractCharacters,
   listEpisodes,
+  summarizeEpisode,
   updateEpisodeText,
   type Episode,
   type ExtractedCharacter,
+  type Usage,
 } from './api'
 import { btn, btnDanger, btnPrimary, card, input, label } from './ui'
 
@@ -32,6 +34,9 @@ function EpisodeRow({
   const [drafts, setDrafts] = useState<Draft[] | null>(null)
   const [savingBank, setSavingBank] = useState(false)
   const [bankMsg, setBankMsg] = useState('')
+  const [summarizing, setSummarizing] = useState(false)
+  const [summaryMsg, setSummaryMsg] = useState('')
+  const [usage, setUsage] = useState<Usage>(null)
 
   async function save() {
     setBusy(true)
@@ -99,6 +104,23 @@ function EpisodeRow({
     }
   }
 
+  async function summarize() {
+    setSummarizing(true)
+    setSummaryMsg('')
+    setUsage(null)
+    try {
+      const res = await summarizeEpisode(ep.id)
+      setSummaryMsg('요약 완료')
+      setUsage(res.usage)
+      onChanged()
+      onCharactersSaved() // global memory changed -> refresh preview
+    } catch (e: unknown) {
+      setSummaryMsg(String(e instanceof Error ? e.message : e))
+    } finally {
+      setSummarizing(false)
+    }
+  }
+
   const chars = ep.raw_text.length
   const saveCount = drafts?.filter((d) => d.save).length ?? 0
   return (
@@ -135,7 +157,36 @@ function EpisodeRow({
             <button style={btn} onClick={extract} disabled={extracting || !ep.raw_text.trim()}>
               {extracting ? '인물 추출 중…' : '인물 추출'}
             </button>
+            <button style={btn} onClick={summarize} disabled={summarizing || !ep.raw_text.trim()}>
+              {summarizing ? '요약 중…' : ep.summary ? '요약 다시 생성' : '회차 요약'}
+            </button>
           </div>
+
+          {summaryMsg && (
+            <p style={{ marginTop: 8, color: summaryMsg === '요약 완료' ? '#2d7d2d' : 'crimson' }}>
+              {summaryMsg}
+              {usage && (
+                <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>
+                  (입력 {usage.input} · 출력 {usage.output} · 캐시적중 {usage.cache_read} 토큰)
+                </span>
+              )}
+            </p>
+          )}
+
+          {ep.summary && (
+            <div
+              style={{
+                marginTop: 8,
+                background: '#f7fbf7',
+                border: '1px solid #dbeadb',
+                borderRadius: 6,
+                padding: 10,
+              }}
+            >
+              <strong style={{ fontSize: 13 }}>회차 요약 (다음 회차에 자동 주입됨)</strong>
+              <div style={{ fontSize: 13, color: '#333', marginTop: 4 }}>{ep.summary}</div>
+            </div>
+          )}
 
           {extractError && (
             <p style={{ color: 'crimson', marginTop: 8 }}>{extractError}</p>

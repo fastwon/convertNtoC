@@ -17,6 +17,9 @@ class LLMError(Exception):
 @runtime_checkable
 class LLMProvider(Protocol):
     name: str
+    # Token usage from the most recent call, normalized across providers:
+    # {"input", "output", "cache_read", "cache_write"}. None before any call.
+    last_usage: dict | None
 
     def validate(self) -> tuple[bool, str]:
         """One cheap real call to check the key. (ok, human-readable message)."""

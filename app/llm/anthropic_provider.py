@@ -23,6 +23,32 @@ class AnthropicProvider:
     def __init__(self, api_key: str, model: str = DEFAULT_MODEL) -> None:
         self._client = anthropic.Anthropic(api_key=api_key, max_retries=0, timeout=30.0)
         self._model = model
+        self.last_usage: dict | None = None
+
+    @staticmethod
+    def _system_param(system: str) -> list[dict]:
+        """System prompt as a cacheable prefix.
+
+        The caller passes the project's stable global memory here, so the same
+        prefix is re-sent every episode and served from cache. Volatile
+        per-episode text must go in the user message, never in here.
+        """
+        return [
+            {
+                "type": "text",
+                "text": system,
+                "cache_control": {"type": "ephemeral", "ttl": "1h"},
+            }
+        ]
+
+    def _record_usage(self, msg: object) -> None:
+        u = getattr(msg, "usage", None)
+        self.last_usage = {
+            "input": getattr(u, "input_tokens", 0) or 0,
+            "output": getattr(u, "output_tokens", 0) or 0,
+            "cache_read": getattr(u, "cache_read_input_tokens", 0) or 0,
+            "cache_write": getattr(u, "cache_creation_input_tokens", 0) or 0,
+        }
 
     def validate(self) -> tuple[bool, str]:
         try:
@@ -42,11 +68,12 @@ class AnthropicProvider:
             "messages": [{"role": "user", "content": prompt}],
         }
         if system:
-            kwargs["system"] = system
+            kwargs["system"] = self._system_param(system)
         try:
             msg = self._client.messages.create(**kwargs)
         except Exception as e:  # noqa: BLE001
             raise LLMError("Claude 호출 실패") from e
+        self._record_usage(msg)
         return "".join(b.text for b in msg.content if b.type == "text")
 
     def generate_json(
@@ -63,13 +90,14 @@ class AnthropicProvider:
             "messages": [{"role": "user", "content": prompt}],
         }
         if system:
-            kwargs["system"] = system
+            kwargs["system"] = self._system_param(system)
         if schema is not None:
             kwargs["output_config"] = {"format": {"type": "json_schema", "schema": schema}}
         try:
             msg = self._client.messages.create(**kwargs)
         except Exception as e:  # noqa: BLE001
             raise LLMError("Claude 호출 실패") from e
+        self._record_usage(msg)
         text = "".join(b.text for b in msg.content if b.type == "text")
         try:
             return parse_json_lenient(text)

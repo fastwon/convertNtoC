@@ -203,6 +203,41 @@ export async function uploadRefImage(id: string, file: File): Promise<Character>
     await fetch(`/api/characters/${id}/ref-image`, { method: 'POST', body: fd }),
   )
 }
+// ---- global memory ----
+export type Usage = {
+  input: number
+  output: number
+  cache_read: number
+  cache_write: number
+} | null
+export type SummarizeResult = { summary: string; provider: string; usage: Usage }
+
+export async function getWorldBible(projectId: string): Promise<{ world_bible: string }> {
+  return jsonOrThrow(await fetch(`/api/projects/${projectId}/world-bible`))
+}
+export async function setWorldBible(
+  projectId: string,
+  world_bible: string,
+): Promise<{ world_bible: string }> {
+  return jsonOrThrow(
+    await fetch(`/api/projects/${projectId}/world-bible`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ world_bible }),
+    }),
+  )
+}
+export async function previewMemory(
+  projectId: string,
+  before?: number,
+): Promise<{ memory: string; chars: number }> {
+  const q = before === undefined ? '' : `?before=${before}`
+  return jsonOrThrow(await fetch(`/api/projects/${projectId}/memory${q}`))
+}
+export async function summarizeEpisode(episodeId: string): Promise<SummarizeResult> {
+  return jsonOrThrow(await fetch(`/api/episodes/${episodeId}/summarize`, { method: 'POST' }))
+}
+
 export function refImageUrl(id: string, version: number | string = ''): string {
   // pass a changing `version` (e.g. Date.now()) after re-upload to bust the cache
   return `/api/characters/${id}/ref-image?v=${encodeURIComponent(String(version))}`

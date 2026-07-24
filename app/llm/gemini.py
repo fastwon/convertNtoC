@@ -18,6 +18,12 @@ from .util import parse_json_lenient
 # (which can 429 with an exhausted per-model free quota).
 DEFAULT_MODEL = "gemini-flash-latest"
 
+# gemini-flash-latest is a thinking model: reasoning tokens are drawn from the
+# SAME max_output_tokens budget as the answer, and thinking cannot be disabled
+# (thinking_budget=0 is rejected with 400). Without headroom a 1024-token
+# request spends ~1000 on thinking and returns a truncated answer.
+_THINKING_HEADROOM = 3072
+
 
 def _friendly_error(e: Exception) -> str:
     msg = str(e).lower()
@@ -36,6 +42,29 @@ class GeminiProvider:
     def __init__(self, api_key: str, model: str = DEFAULT_MODEL) -> None:
         self._client = genai.Client(api_key=api_key)
         self._model = model
+        self.last_usage: dict | None = None
+
+    @staticmethod
+    def _check_truncated(resp: object) -> None:
+        """Raise if the answer was cut off by the output budget."""
+        try:
+            finish = str(resp.candidates[0].finish_reason)  # type: ignore[attr-defined]
+        except Exception:  # noqa: BLE001
+            return
+        if "MAX_TOKENS" in finish:
+            raise LLMError(
+                "응답이 최대 길이에서 잘렸습니다. 본문을 줄이거나 다시 시도하세요."
+            )
+
+    def _record_usage(self, resp: object) -> None:
+        um = getattr(resp, "usage_metadata", None)
+        self.last_usage = {
+            "input": getattr(um, "prompt_token_count", 0) or 0,
+            "output": getattr(um, "candidates_token_count", 0) or 0,
+            # Gemini caches the repeated prefix implicitly; this reports the hit.
+            "cache_read": getattr(um, "cached_content_token_count", 0) or 0,
+            "cache_write": 0,
+        }
 
     def validate(self) -> tuple[bool, str]:
         try:
@@ -53,7 +82,7 @@ class GeminiProvider:
     def generate_text(self, prompt: str, *, system: str | None = None, max_tokens: int = 2048) -> str:
         config = types.GenerateContentConfig(
             system_instruction=system,
-            max_output_tokens=max_tokens,
+            max_output_tokens=max_tokens + _THINKING_HEADROOM,
         )
         try:
             resp = self._client.models.generate_content(
@@ -61,6 +90,8 @@ class GeminiProvider:
             )
         except Exception as e:  # noqa: BLE001
             raise LLMError(_friendly_error(e)) from e
+        self._record_usage(resp)
+        self._check_truncated(resp)
         return resp.text or ""
 
     def generate_json(
@@ -73,7 +104,7 @@ class GeminiProvider:
     ) -> Any:
         config = types.GenerateContentConfig(
             system_instruction=system,
-            max_output_tokens=max_tokens,
+            max_output_tokens=max_tokens + _THINKING_HEADROOM,
             response_mime_type="application/json",
         )
         try:
@@ -82,6 +113,8 @@ class GeminiProvider:
             )
         except Exception as e:  # noqa: BLE001
             raise LLMError(_friendly_error(e)) from e
+        self._record_usage(resp)
+        self._check_truncated(resp)
         try:
             return parse_json_lenient(resp.text or "")
         except Exception as e:  # noqa: BLE001

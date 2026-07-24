@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { getProject, updateProject, type Project } from './api'
 import Characters from './Characters'
 import Episodes from './Episodes'
+import Memory from './Memory'
 import { btn, btnPrimary, card, input, label } from './ui'
 
 export default function ProjectDetail({ id, onBack }: { id: string; onBack: () => void }) {
@@ -111,6 +112,7 @@ export default function ProjectDetail({ id, onBack }: { id: string; onBack: () =
             {saved && <span style={{ color: 'green' }}>저장됨 ✓</span>}
           </div>
 
+          <Memory projectId={id} refreshKey={charRefresh} />
           <Characters projectId={id} refreshKey={charRefresh} />
           <Episodes projectId={id} onCharactersSaved={() => setCharRefresh((v) => v + 1)} />
         </>
