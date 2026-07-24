@@ -73,7 +73,7 @@ def _build_prompt(raw_text: str, existing: list[dict]) -> str:
 """
 
 
-def _validate_result(data: Any, existing_ids: set[str]) -> list[dict]:
+def _validate_result(data: Any, existing_by_id: dict) -> list[dict]:
     if not isinstance(data, dict) or not isinstance(data.get("characters"), list):
         raise LLMError("추출 결과 형식이 올바르지 않습니다")
     out: list[dict] = []
@@ -82,14 +82,21 @@ def _validate_result(data: Any, existing_ids: set[str]) -> list[dict]:
             continue
         matched = item.get("matched_character_id")
         # drop hallucinated ids that aren't in this project's bank
-        if matched not in existing_ids:
+        if matched not in existing_by_id:
             matched = None
+        # for existing characters, surface the bank's current description so the
+        # user can compare before deciding whether to update it
+        current = None
+        if matched:
+            traits = existing_by_id[matched].traits
+            current = str(traits.get("description", "")).strip() if isinstance(traits, dict) else ""
         out.append(
             {
                 "name": str(item["name"]).strip(),
                 "is_new": bool(item.get("is_new", matched is None)),
                 "matched_character_id": matched,
                 "traits": str(item.get("traits", "")).strip(),
+                "current_traits": current,
             }
         )
     return out
@@ -102,12 +109,13 @@ def extract_characters(episode_id: str) -> dict:
     if not episode.raw_text.strip():
         raise LLMError("회차 본문이 비어 있습니다")
 
-    existing = [{"id": c.id, "name": c.name} for c in repo.list_characters(episode.project_id)]
-    existing_ids = {c["id"] for c in existing}
+    bank = repo.list_characters(episode.project_id)
+    existing = [{"id": c.id, "name": c.name} for c in bank]
+    existing_by_id = {c.id: c for c in bank}
 
     provider = factory.get_provider()  # raises LLMError if the active key is missing
     prompt = _build_prompt(episode.raw_text, existing)
     data = provider.generate_json(prompt, system=SYSTEM, schema=EXTRACTION_SCHEMA)
 
-    characters = _validate_result(data, existing_ids)
+    characters = _validate_result(data, existing_by_id)
     return {"provider": provider.name, "characters": characters}

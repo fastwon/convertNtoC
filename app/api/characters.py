@@ -38,6 +38,7 @@ class ConfirmItem(BaseModel):
     name: str
     traits: str = ""
     save: bool = True
+    matched_character_id: str | None = None  # set -> update that bank entry instead
 
 
 class ConfirmBody(BaseModel):
@@ -46,21 +47,41 @@ class ConfirmBody(BaseModel):
 
 @router.post("/api/episodes/{episode_id}/confirm-characters")
 def confirm(episode_id: str, body: ConfirmBody) -> dict:
+    """Persist confirmed characters.
+
+    New characters are created; existing ones are only updated when the user
+    explicitly approved it (save=True with matched_character_id). Defaulting to
+    "don't touch" keeps the bank — and therefore visual consistency — stable.
+    """
     ep = repo.get_episode(episode_id)
     if ep is None:
         raise HTTPException(status_code=404, detail="회차를 찾을 수 없습니다")
-    existing_names = {c.name for c in repo.list_characters(ep.project_id)}
-    saved = []
+    bank = repo.list_characters(ep.project_id)
+    existing_names = {c.name for c in bank}
+    existing_ids = {c.id for c in bank}
+
+    saved, updated = [], []
     for item in body.characters:
         if not item.save:
             continue
         name = item.name.strip()
-        if not name or name in existing_names:
-            continue  # skip blanks and already-in-bank names
+        if not name:
+            continue
+        if item.matched_character_id and item.matched_character_id in existing_ids:
+            # approved update of an existing bank entry (description only;
+            # renaming stays a deliberate action in the character bank UI)
+            ch = repo.update_character(
+                item.matched_character_id, traits={"description": item.traits.strip()}
+            )
+            if ch:
+                updated.append(asdict(ch))
+            continue
+        if name in existing_names:
+            continue  # same name already in the bank -> don't duplicate
         ch = repo.create_character(ep.project_id, name, {"description": item.traits.strip()})
         existing_names.add(name)
         saved.append(asdict(ch))
-    return {"saved": saved}
+    return {"saved": saved, "updated": updated}
 
 
 # --- bank CRUD --------------------------------------------------------------

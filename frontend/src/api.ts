@@ -144,6 +144,7 @@ export type ExtractedCharacter = {
   is_new: boolean
   matched_character_id: string | null
   traits: string
+  current_traits: string | null // bank's current description (existing characters)
 }
 export type ExtractionResult = { provider: string; characters: ExtractedCharacter[] }
 
@@ -163,7 +164,12 @@ export type Character = {
   created_at: string
 }
 
-export type ConfirmItem = { name: string; traits: string; save: boolean }
+export type ConfirmItem = {
+  name: string
+  traits: string
+  save: boolean
+  matched_character_id?: string | null
+}
 
 export async function listCharacters(projectId: string): Promise<Character[]> {
   return jsonOrThrow(await fetch(`/api/projects/${projectId}/characters`))
@@ -171,7 +177,7 @@ export async function listCharacters(projectId: string): Promise<Character[]> {
 export async function confirmCharacters(
   episodeId: string,
   characters: ConfirmItem[],
-): Promise<{ saved: Character[] }> {
+): Promise<{ saved: Character[]; updated: Character[] }> {
   return jsonOrThrow(
     await fetch(`/api/episodes/${episodeId}/confirm-characters`, {
       method: 'POST',

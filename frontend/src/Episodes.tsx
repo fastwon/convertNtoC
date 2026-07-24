@@ -14,7 +14,14 @@ import {
 import { btn, btnDanger, btnPrimary, card, input, label } from './ui'
 
 // one editable row in the extraction-confirm list
-type Draft = { name: string; traits: string; is_new: boolean; save: boolean }
+type Draft = {
+  name: string
+  traits: string
+  is_new: boolean
+  save: boolean
+  matched_character_id: string | null
+  current_traits: string | null
+}
 
 function EpisodeRow({
   ep,
@@ -66,13 +73,16 @@ function EpisodeRow({
     setBankMsg('')
     try {
       const res = await extractCharacters(ep.id)
-      // new characters default to save; existing (already in bank) default off
+      // new characters default to save; existing default OFF (don't touch the
+      // bank unless the user explicitly approves the update)
       setDrafts(
         res.characters.map((c: ExtractedCharacter) => ({
           name: c.name,
           traits: c.traits,
           is_new: c.is_new,
           save: c.is_new,
+          matched_character_id: c.matched_character_id,
+          current_traits: c.current_traits,
         })),
       )
     } catch (e: unknown) {
@@ -93,9 +103,17 @@ function EpisodeRow({
     try {
       const res = await confirmCharacters(
         ep.id,
-        drafts.map((d) => ({ name: d.name, traits: d.traits, save: d.save })),
+        drafts.map((d) => ({
+          name: d.name,
+          traits: d.traits,
+          save: d.save,
+          matched_character_id: d.matched_character_id,
+        })),
       )
-      setBankMsg(`${res.saved.length}명을 캐릭터 뱅크에 저장했습니다.`)
+      const parts = []
+      if (res.saved.length) parts.push(`신규 ${res.saved.length}명 저장`)
+      if (res.updated.length) parts.push(`기존 ${res.updated.length}명 설명 갱신`)
+      setBankMsg(parts.length ? parts.join(' · ') : '변경된 항목이 없습니다.')
       onCharactersSaved()
     } catch (e: unknown) {
       setBankMsg(String(e instanceof Error ? e.message : e))
@@ -195,7 +213,8 @@ function EpisodeRow({
             <div style={{ marginTop: 12 }}>
               <strong>추출된 인물 ({drafts.length}) — 확인 후 저장</strong>
               <p style={{ color: '#aaa', fontSize: 12, margin: '2px 0 8px' }}>
-                이름·특징을 수정하고, 저장할 인물만 체크하세요. (기존 인물은 기본 해제)
+                신규 인물은 체크하면 저장됩니다. 기존 인물은 <b>기본 해제</b>이며, 체크하면 이번
+                회차 관찰로 <b>설명이 갱신</b>됩니다.
               </p>
               {drafts.length === 0 && (
                 <p style={{ color: '#888' }}>인식된 이름있는 인물이 없습니다.</p>
@@ -229,8 +248,26 @@ function EpisodeRow({
                       {d.is_new ? '신규' : '기존'}
                     </span>
                   </div>
+                  {!d.is_new && d.current_traits !== null && (
+                    <div
+                      style={{
+                        marginTop: 6,
+                        fontSize: 12,
+                        color: '#777',
+                        background: '#f6f6f6',
+                        border: '1px solid #eee',
+                        borderRadius: 4,
+                        padding: '6px 8px',
+                      }}
+                    >
+                      <b>현재 뱅크 설명:</b> {d.current_traits || '(없음)'}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
+                    {d.is_new ? '특징' : '이번 회차 관찰 (체크 시 이 내용으로 갱신)'}
+                  </div>
                   <textarea
-                    style={{ ...input, minHeight: 40, marginTop: 6, resize: 'vertical' }}
+                    style={{ ...input, minHeight: 40, marginTop: 4, resize: 'vertical' }}
                     value={d.traits}
                     onChange={(e) => patchDraft(i, { traits: e.target.value })}
                   />
@@ -239,7 +276,7 @@ function EpisodeRow({
               {drafts.length > 0 && (
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
                   <button style={btnPrimary} onClick={saveToBank} disabled={savingBank || saveCount === 0}>
-                    선택 {saveCount}명 뱅크에 저장
+                    선택 {saveCount}명 저장·갱신
                   </button>
                   {bankMsg && <span style={{ color: '#2d7d2d' }}>{bankMsg}</span>}
                 </div>
