@@ -332,6 +332,14 @@ export async function deletePanel(panelId: string): Promise<void> {
   const r = await fetch(`/api/panels/${panelId}`, { method: 'DELETE' })
   if (!r.ok) throw new Error('컷 삭제 실패')
 }
+export async function generatePanelImage(
+  panelId: string,
+): Promise<{ generator: string; prompt: string; image_path: string }> {
+  return jsonOrThrow(await fetch(`/api/panels/${panelId}/image`, { method: 'POST' }))
+}
+export function panelImageUrl(panelId: string, version: number | string = ''): string {
+  return `/api/panels/${panelId}/image?v=${encodeURIComponent(String(version))}`
+}
 
 export function refImageUrl(appearanceId: string, version: number | string = ''): string {
   // pass a changing `version` (e.g. Date.now()) after re-upload to bust the cache

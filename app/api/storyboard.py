@@ -5,10 +5,14 @@ from dataclasses import asdict
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from ..image.base import ImageError
 from ..llm.base import LLMError
+from ..services import images as image_svc
 from ..services import storyboard as svc
+from ..storage import files
 from ..storage import repository as repo
 
 router = APIRouter(tags=["storyboard"])
@@ -49,3 +53,22 @@ def delete_panel(panel_id: str) -> dict:
         raise HTTPException(status_code=404, detail="컷을 찾을 수 없습니다")
     repo.delete_panel(panel_id)
     return {"ok": True}
+
+
+@router.post("/api/panels/{panel_id}/image")
+def generate_image(panel_id: str) -> dict:
+    try:
+        return image_svc.generate_panel_image(panel_id)
+    except ImageError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.get("/api/panels/{panel_id}/image")
+def get_image(panel_id: str) -> FileResponse:
+    panel = repo.get_panel(panel_id)
+    if panel is None or not panel.image_path:
+        raise HTTPException(status_code=404, detail="컷 이미지가 없습니다")
+    path = files.resolve(panel.image_path)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="이미지 파일을 찾을 수 없습니다")
+    return FileResponse(path)
