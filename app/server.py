@@ -14,6 +14,7 @@ from .api.episodes import router as episodes_router
 from .api.memory import router as memory_router
 from .api.projects import router as projects_router
 from .api.settings import router as settings_router
+from .api.storyboard import router as storyboard_router
 from .api.system import router as system_router
 from .paths import static_dir
 from .storage import db
@@ -34,6 +35,7 @@ def create_app() -> FastAPI:
     app.include_router(episodes_router)
     app.include_router(characters_router)
     app.include_router(memory_router)
+    app.include_router(storyboard_router)
 
     # Static SPA mount must be added LAST so /api/* routes take precedence.
     sdir = static_dir()

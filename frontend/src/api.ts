@@ -293,6 +293,46 @@ export async function summarizeEpisode(episodeId: string): Promise<SummarizeResu
   return jsonOrThrow(await fetch(`/api/episodes/${episodeId}/summarize`, { method: 'POST' }))
 }
 
+// ---- storyboard (콘티) ----
+export type PanelCharacter = { name: string; appearance_label: string }
+export type PanelDialogue = { speaker: string; text: string }
+export type Panel = {
+  id: string
+  episode_id: string
+  order: number
+  scene: string
+  characters: PanelCharacter[] | null
+  prompt: string
+  image_path: string | null
+  dialogue: PanelDialogue[] | null
+  created_at: string
+}
+
+export async function generateStoryboard(
+  episodeId: string,
+): Promise<{ provider: string; panels: Panel[]; usage: Usage }> {
+  return jsonOrThrow(await fetch(`/api/episodes/${episodeId}/storyboard`, { method: 'POST' }))
+}
+export async function listPanels(episodeId: string): Promise<Panel[]> {
+  return jsonOrThrow(await fetch(`/api/episodes/${episodeId}/panels`))
+}
+export async function updatePanel(
+  panelId: string,
+  patch: { scene?: string; dialogue?: PanelDialogue[] },
+): Promise<Panel> {
+  return jsonOrThrow(
+    await fetch(`/api/panels/${panelId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }),
+  )
+}
+export async function deletePanel(panelId: string): Promise<void> {
+  const r = await fetch(`/api/panels/${panelId}`, { method: 'DELETE' })
+  if (!r.ok) throw new Error('컷 삭제 실패')
+}
+
 export function refImageUrl(appearanceId: string, version: number | string = ''): string {
   // pass a changing `version` (e.g. Date.now()) after re-upload to bust the cache
   return `/api/appearances/${appearanceId}/ref-image?v=${encodeURIComponent(String(version))}`

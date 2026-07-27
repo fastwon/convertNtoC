@@ -11,6 +11,7 @@ import {
   type ExtractedCharacter,
   type Usage,
 } from './api'
+import Storyboard from './Storyboard'
 import { btn, btnDanger, btnPrimary, card, input, label } from './ui'
 
 // one editable row in the extraction-confirm list
@@ -283,6 +284,8 @@ function EpisodeRow({
               )}
             </div>
           )}
+
+          <Storyboard episodeId={ep.id} />
         </div>
       )}
     </div>

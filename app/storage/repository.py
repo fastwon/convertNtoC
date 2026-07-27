@@ -68,8 +68,9 @@ def _episode(r: Any) -> Episode:
 
 def _panel(r: Any) -> Panel:
     return Panel(
-        id=r["id"], episode_id=r["episode_id"], order=r["ord"], prompt=r["prompt"],
-        image_path=r["image_path"], dialogue=_loads(r["dialogue"]), created_at=r["created_at"],
+        id=r["id"], episode_id=r["episode_id"], order=r["ord"], scene=r["scene"],
+        characters=_loads(r["characters"]), prompt=r["prompt"], image_path=r["image_path"],
+        dialogue=_loads(r["dialogue"]), created_at=r["created_at"],
     )
 
 
@@ -353,16 +354,19 @@ def set_episode_status(episode_id: str, status: str) -> None:
 def create_panel(
     episode_id: str,
     order: int,
+    scene: str = "",
+    characters: Any | None = None,
+    dialogue: Any | None = None,
     prompt: str = "",
     image_path: str | None = None,
-    dialogue: Any | None = None,
 ) -> Panel:
     pid, now = _new_id(), _now()
     with db.connect() as conn:
         conn.execute(
-            "INSERT INTO panel(id, episode_id, ord, prompt, image_path, dialogue, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (pid, episode_id, order, prompt, image_path, _dumps(dialogue), now),
+            "INSERT INTO panel(id, episode_id, ord, scene, characters, prompt, image_path,"
+            " dialogue, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (pid, episode_id, order, scene, _dumps(characters), prompt, image_path,
+             _dumps(dialogue), now),
         )
         row = conn.execute("SELECT * FROM panel WHERE id = ?", (pid,)).fetchone()
     return _panel(row)
@@ -374,6 +378,48 @@ def list_panels(episode_id: str) -> list[Panel]:
             "SELECT * FROM panel WHERE episode_id = ? ORDER BY ord", (episode_id,)
         ).fetchall()
     return [_panel(r) for r in rows]
+
+
+def get_panel(panel_id: str) -> Panel | None:
+    with db.connect() as conn:
+        row = conn.execute("SELECT * FROM panel WHERE id = ?", (panel_id,)).fetchone()
+    return _panel(row) if row else None
+
+
+def replace_episode_panels(episode_id: str, panels: list[dict]) -> list[Panel]:
+    """Delete this episode's panels and insert the given storyboard afresh."""
+    now = _now()
+    with db.connect() as conn:
+        conn.execute("DELETE FROM panel WHERE episode_id = ?", (episode_id,))
+        for i, p in enumerate(panels):
+            conn.execute(
+                "INSERT INTO panel(id, episode_id, ord, scene, characters, prompt, image_path,"
+                " dialogue, created_at) VALUES (?, ?, ?, ?, ?, '', NULL, ?, ?)",
+                (_new_id(), episode_id, i, p.get("scene", ""), _dumps(p.get("characters")),
+                 _dumps(p.get("dialogue")), now),
+            )
+    return list_panels(episode_id)
+
+
+def update_panel(panel_id: str, **fields: Any) -> Panel | None:
+    allowed = {"scene", "characters", "dialogue", "prompt", "image_path"}
+    json_fields = {"characters", "dialogue"}
+    sets, vals = [], []
+    for key, val in fields.items():
+        if key not in allowed:
+            raise ValueError(f"수정 불가 필드: {key}")
+        sets.append(f"{key} = ?")
+        vals.append(_dumps(val) if key in json_fields else val)
+    if sets:
+        vals.append(panel_id)
+        with db.connect() as conn:
+            conn.execute(f"UPDATE panel SET {', '.join(sets)} WHERE id = ?", vals)
+    return get_panel(panel_id)
+
+
+def delete_panel(panel_id: str) -> None:
+    with db.connect() as conn:
+        conn.execute("DELETE FROM panel WHERE id = ?", (panel_id,))
 
 
 # --- Global memory ----------------------------------------------------------

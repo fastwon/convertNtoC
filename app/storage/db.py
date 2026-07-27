@@ -97,9 +97,11 @@ CREATE TABLE IF NOT EXISTS panel (
   id         TEXT PRIMARY KEY,
   episode_id TEXT NOT NULL REFERENCES episode(id) ON DELETE CASCADE,
   ord        INTEGER NOT NULL,
-  prompt     TEXT NOT NULL DEFAULT '',
-  image_path TEXT,                      -- relative to app_data_dir
-  dialogue   TEXT,                      -- JSON
+  scene      TEXT NOT NULL DEFAULT '',  -- LLM visual description of the cut
+  characters TEXT,                      -- JSON: [{"name","appearance_label"}]
+  prompt     TEXT NOT NULL DEFAULT '',  -- assembled image prompt (P6b)
+  image_path TEXT,                      -- generated image, relative to app_data_dir (P6b)
+  dialogue   TEXT,                      -- JSON: [{"speaker","text"}]
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_panel_episode ON panel(episode_id);
@@ -166,7 +168,18 @@ def _backfill_default_appearances() -> None:
             )
 
 
+def _migrate_panel_columns() -> None:
+    """Add scene/characters columns to a panel table created before P6."""
+    with connect() as conn:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(panel)")}
+        if "scene" not in cols:
+            conn.execute("ALTER TABLE panel ADD COLUMN scene TEXT NOT NULL DEFAULT ''")
+        if "characters" not in cols:
+            conn.execute("ALTER TABLE panel ADD COLUMN characters TEXT")
+
+
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
+    _migrate_panel_columns()
     _backfill_default_appearances()

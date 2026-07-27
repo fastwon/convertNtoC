@@ -55,9 +55,11 @@ class Panel:
     id: str
     episode_id: str
     order: int
+    scene: str
+    characters: Any | None  # [{"name","appearance_label"}]
     prompt: str
     image_path: str | None
-    dialogue: Any | None
+    dialogue: Any | None  # [{"speaker","text"}]
     created_at: str
 
 
