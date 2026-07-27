@@ -15,6 +15,12 @@ class ImageError(Exception):
 class ImageGenerator(Protocol):
     name: str
 
-    def generate(self, prompt: str, *, width: int = 1024, height: int = 1024) -> bytes:
-        """Return image bytes (PNG or JPEG) for the assembled prompt."""
+    def generate(
+        self, prompt: str, *, width: int = 1024, height: int = 1024, seed: int | None = None
+    ) -> bytes:
+        """Return image bytes (PNG or JPEG) for the assembled prompt.
+
+        `seed` varies the composition; pass a different value per panel so cuts
+        that share style/character text don't render near-identically.
+        """
         ...

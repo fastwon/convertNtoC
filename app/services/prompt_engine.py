@@ -26,11 +26,12 @@ def _appearance_desc(project_id: str, name: str, label: str) -> str | None:
 
 
 def build_panel_prompt(project: Project, panel: Panel) -> str:
+    # Lead with the scene so THIS cut's content dominates; style/character text
+    # (shared across cuts) comes after as conditioning, not the headline.
     parts: list[str] = []
 
-    style = project.style_prompt.strip()
-    if style:
-        parts.append(f"화풍: {style}")
+    if panel.scene.strip():
+        parts.append(f"장면: {panel.scene.strip()}")
 
     for pc in panel.characters or []:
         name = pc.get("name", "")
@@ -40,8 +41,9 @@ def build_panel_prompt(project: Project, panel: Panel) -> str:
             tag = f"{name}" if label in ("", "기본") else f"{name}({label})"
             parts.append(f"{tag}: {desc}")
 
-    if panel.scene.strip():
-        parts.append(f"장면: {panel.scene.strip()}")
+    style = project.style_prompt.strip()
+    if style:
+        parts.append(f"화풍: {style}")
 
     # dialogue/speech goes on later (P7 speech bubbles) — keep text out of the art
     parts.append("만화 컷 일러스트, 글자·말풍선 없이 그림만")

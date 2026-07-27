@@ -19,14 +19,18 @@ class PollinationsGenerator:
     def __init__(self, model: str = "flux") -> None:
         self._model = model
 
-    def generate(self, prompt: str, *, width: int = 1024, height: int = 1024) -> bytes:
+    def generate(
+        self, prompt: str, *, width: int = 1024, height: int = 1024, seed: int | None = None
+    ) -> bytes:
         url = BASE + urllib.parse.quote(prompt)
-        params = {
+        params: dict = {
             "width": width,
             "height": height,
             "nologo": "true",
             "model": self._model,
         }
+        if seed is not None:
+            params["seed"] = seed
         try:
             r = httpx.get(url, params=params, timeout=180, follow_redirects=True)
             r.raise_for_status()

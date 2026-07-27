@@ -3,6 +3,8 @@ generator, save the file, and record it on the panel.
 """
 from __future__ import annotations
 
+import secrets
+
 from ..image import factory
 from ..image.base import ImageError
 from ..storage import files
@@ -23,7 +25,9 @@ def generate_panel_image(panel_id: str) -> dict:
 
     prompt = build_panel_prompt(project, panel)
     generator = factory.get_generator()
-    data = generator.generate(prompt, width=1024, height=1024)
+    # fresh seed each call → distinct composition per cut, and re-generate varies
+    seed = secrets.randbelow(2_000_000_000)
+    data = generator.generate(prompt, width=1024, height=1024, seed=seed)
 
     rel = files.save_bytes(project.id, "panels", f"{panel_id}.jpg", data)
     repo.update_panel(panel_id, prompt=prompt, image_path=rel)
