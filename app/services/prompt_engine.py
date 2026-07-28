@@ -11,7 +11,8 @@ from ..storage.models import Panel, Project
 
 
 def _appearance_desc(project_id: str, name: str, label: str) -> str | None:
-    """Find the description for a character's specific look."""
+    """Outfit (외형) for a character's specific look, falling back to the persona
+    (인물 설명) when no outfit has been set yet."""
     for c in repo.list_characters(project_id):
         if c.name != name:
             continue
@@ -19,9 +20,11 @@ def _appearance_desc(project_id: str, name: str, label: str) -> str | None:
         chosen = next((a for a in looks if a.label == label), None)
         if chosen is None:
             chosen = next((a for a in looks if a.is_default), looks[0] if looks else None)
-        if chosen is None:
-            return None
-        return chosen.description.strip()
+        outfit = chosen.description.strip() if chosen else ""
+        if outfit:
+            return outfit
+        persona = c.traits.get("description", "") if isinstance(c.traits, dict) else ""
+        return str(persona).strip() or None
     return None
 
 

@@ -144,11 +144,13 @@ def create_character(
     traits: dict[str, Any] | None = None,
     ref_image_path: str | None = None,
 ) -> Character:
-    """Create a character plus its '기본' appearance (every character has ≥1 look)."""
+    """Create a character plus its '기본' appearance (every character has ≥1 look).
+
+    The persona (성격/인물 설명) lives on character.traits; the appearance's
+    description is the OUTFIT (외형), filled separately by 외형 추출 — so it starts
+    empty here.
+    """
     cid, now = _new_id(), _now()
-    description = ""
-    if isinstance(traits, dict):
-        description = str(traits.get("description", "")).strip()
     with db.connect() as conn:
         conn.execute(
             "INSERT INTO character(id, project_id, name, traits, ref_image_path, created_at)"
@@ -159,8 +161,8 @@ def create_character(
             "INSERT INTO character_appearance"
             "(id, character_id, label, description, ref_image_path,"
             " source_episode_number, is_default, created_at)"
-            " VALUES (?, ?, '기본', ?, ?, NULL, 1, ?)",
-            (_new_id(), cid, description, ref_image_path, now),
+            " VALUES (?, ?, '기본', '', ?, NULL, 1, ?)",
+            (_new_id(), cid, ref_image_path, now),
         )
     return get_character(cid)  # type: ignore[return-value]
 

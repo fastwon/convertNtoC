@@ -14,10 +14,10 @@ import {
   type Appearance,
   type Character,
 } from './api'
-import { btn, btnDanger, card, input } from './ui'
+import { btn, btnDanger, card, input, label } from './ui'
 
 function AppearanceRow({ ap, onChanged }: { ap: Appearance; onChanged: () => void }) {
-  const [label, setLabel] = useState(ap.label)
+  const [labelText, setLabelText] = useState(ap.label)
   const [desc, setDesc] = useState(ap.description)
   const [epNum, setEpNum] = useState(
     ap.source_episode_number === null ? '' : String(ap.source_episode_number),
@@ -27,12 +27,19 @@ function AppearanceRow({ ap, onChanged }: { ap: Appearance; onChanged: () => voi
   const [hasImg, setHasImg] = useState(!!ap.ref_image_path)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // sync when the row is reloaded after an external change (외형 추출 등)
+  useEffect(() => {
+    setDesc(ap.description)
+    setLabelText(ap.label)
+    setHasImg(!!ap.ref_image_path)
+  }, [ap.description, ap.label, ap.ref_image_path])
+
   async function save() {
     setBusy(true)
     try {
       const n = epNum.trim() === '' ? null : Number(epNum)
       await updateAppearance(ap.id, {
-        label: label.trim(),
+        label: labelText.trim(),
         description: desc,
         source_episode_number: Number.isFinite(n as number) ? n : null,
       })
@@ -81,7 +88,7 @@ function AppearanceRow({ ap, onChanged }: { ap: Appearance; onChanged: () => voi
     setBusy(true)
     try {
       const r = await describeAppearanceFromImage(ap.id)
-      setDesc(r.description) // fills the textarea; user reviews then saves
+      setDesc(r.description) // fills the 외형 box; user reviews then saves
     } catch (err: unknown) {
       alert(String(err instanceof Error ? err.message : err))
     } finally {
@@ -101,7 +108,7 @@ function AppearanceRow({ ap, onChanged }: { ap: Appearance; onChanged: () => voi
         background: ap.is_default ? '#f7fbff' : '#fff',
       }}
     >
-      <div style={{ flexShrink: 0, textAlign: 'center' }}>
+      <div style={{ flexShrink: 0, textAlign: 'center', width: 72 }}>
         <div
           style={{
             width: 64,
@@ -138,7 +145,7 @@ function AppearanceRow({ ap, onChanged }: { ap: Appearance; onChanged: () => voi
             style={{ ...btn, marginTop: 4, fontSize: 11, padding: '3px 6px', width: '100%' }}
             onClick={extractDesc}
             disabled={busy}
-            title="참조 이미지를 AI가 보고, 기존 설명과 통합해 외형 묘사를 채웁니다"
+            title="참조 이미지를 AI가 보고 외형 묘사를 채웁니다"
           >
             외형 추출
           </button>
@@ -149,13 +156,13 @@ function AppearanceRow({ ap, onChanged }: { ap: Appearance; onChanged: () => voi
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <input
             style={{ ...input, flex: 1 }}
-            value={label}
+            value={labelText}
             placeholder="모습 이름 (예: 기본, 10년 전, 부상 후)"
-            onChange={(e) => setLabel(e.target.value)}
+            onChange={(e) => setLabelText(e.target.value)}
             disabled={busy}
           />
           <input
-            style={{ ...input, width: 90 }}
+            style={{ ...input, width: 80 }}
             value={epNum}
             placeholder="회차"
             onChange={(e) => setEpNum(e.target.value)}
@@ -165,15 +172,18 @@ function AppearanceRow({ ap, onChanged }: { ap: Appearance; onChanged: () => voi
             <span style={{ fontSize: 11, color: '#1e6fd0', flexShrink: 0 }}>기본</span>
           )}
         </div>
+        <div style={{ fontSize: 11, color: '#888', margin: '6px 0 2px' }}>
+          외형 (시각 — 이미지 생성에 사용)
+        </div>
         <textarea
-          style={{ ...input, minHeight: 40, marginTop: 6, resize: 'vertical' }}
+          style={{ ...input, minHeight: 44, resize: 'vertical' }}
           value={desc}
-          placeholder="이 시점의 외모·특징"
+          placeholder="머리색·눈·복장 등 이 시점의 외형"
           onChange={(e) => setDesc(e.target.value)}
           disabled={busy}
         />
         <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-          <button style={{ ...btn, fontSize: 12 }} onClick={save} disabled={busy || !label.trim()}>
+          <button style={{ ...btn, fontSize: 12 }} onClick={save} disabled={busy || !labelText.trim()}>
             저장
           </button>
           {!ap.is_default && (
@@ -190,25 +200,45 @@ function AppearanceRow({ ap, onChanged }: { ap: Appearance; onChanged: () => voi
   )
 }
 
-function CharacterCard({ ch, onChanged }: { ch: Character; onChanged: () => void }) {
+function CharacterCard({
+  ch,
+  refreshKey,
+  onChanged,
+}: {
+  ch: Character
+  refreshKey: number
+  onChanged: () => void
+}) {
+  const [open, setOpen] = useState(false)
   const [name, setName] = useState(ch.name)
+  const [persona, setPersona] = useState(ch.traits?.description ?? '')
   const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [looks, setLooks] = useState<Appearance[] | null>(null)
   const [newLabel, setNewLabel] = useState('')
+
+  // sync name/persona when the character is reloaded (인물추출 갱신 등)
+  useEffect(() => {
+    setName(ch.name)
+    setPersona(ch.traits?.description ?? '')
+  }, [ch])
 
   const loadLooks = useCallback(() => {
     listAppearances(ch.id)
       .then(setLooks)
       .catch(() => setLooks([]))
   }, [ch.id])
+  // reload looks when opened or an external change happened
   useEffect(() => {
-    loadLooks()
-  }, [loadLooks])
+    if (open) loadLooks()
+  }, [open, loadLooks, refreshKey])
 
-  async function saveName() {
+  async function saveInfo() {
     setBusy(true)
+    setSaved(false)
     try {
-      await updateCharacter(ch.id, { name: name.trim() })
+      await updateCharacter(ch.id, { name: name.trim(), traits: persona })
+      setSaved(true)
       onChanged()
     } finally {
       setBusy(false)
@@ -238,41 +268,78 @@ function CharacterCard({ ch, onChanged }: { ch: Character; onChanged: () => void
 
   return (
     <div style={card}>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <input
-          style={{ ...input, flex: 1, fontWeight: 700 }}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          disabled={busy}
-        />
-        <button style={btn} onClick={saveName} disabled={busy || !name.trim()}>
-          이름 저장
-        </button>
-        <button style={btnDanger} onClick={removeChar} disabled={busy}>
-          삭제
-        </button>
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span style={{ color: '#999' }}>{open ? '▼' : '▶'}</span>
+        <strong style={{ fontSize: 16 }}>{ch.name}</strong>
+        {!open && persona && (
+          <span
+            style={{
+              color: '#888',
+              fontSize: 12,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            — {persona}
+          </span>
+        )}
       </div>
 
-      <div style={{ marginTop: 6, fontSize: 12, color: '#888' }}>
-        시점별 모습 — 회상·성장·부상 등 다른 모습을 추가하면 컷 생성 시 골라 쓸 수 있습니다.
-      </div>
+      {open && (
+        <div style={{ marginTop: 10 }}>
+          <label style={label}>이름</label>
+          <input
+            style={input}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            disabled={busy}
+          />
+          <label style={label}>인물 설명 (성격·서사 — 인물 추출로 갱신됨)</label>
+          <textarea
+            style={{ ...input, minHeight: 48, resize: 'vertical' }}
+            value={persona}
+            placeholder="성격·역할·서사적 특징"
+            onChange={(e) => setPersona(e.target.value)}
+            disabled={busy}
+          />
+          <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+            <button style={btn} onClick={saveInfo} disabled={busy || !name.trim()}>
+              이름·설명 저장
+            </button>
+            {saved && <span style={{ color: 'green', fontSize: 13 }}>저장됨 ✓</span>}
+            <button style={btnDanger} onClick={removeChar} disabled={busy}>
+              캐릭터 삭제
+            </button>
+          </div>
 
-      {looks?.map((a) => (
-        <AppearanceRow key={a.id} ap={a} onChanged={loadLooks} />
-      ))}
-
-      <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-        <input
-          style={{ ...input, flex: 1 }}
-          value={newLabel}
-          placeholder="새 모습 이름 (예: 10년 전, 부상 후, 노년)"
-          onChange={(e) => setNewLabel(e.target.value)}
-          disabled={busy}
-        />
-        <button style={btn} onClick={addLook} disabled={busy || !newLabel.trim()}>
-          모습 추가
-        </button>
-      </div>
+          <div style={{ marginTop: 14, fontSize: 13, fontWeight: 700 }}>
+            시점별 모습 (외형)
+          </div>
+          <div style={{ fontSize: 12, color: '#888' }}>
+            현재/과거 회상/부상 후 등 외형을 각각 관리 — 컷 생성 시 골라 쓰입니다.
+          </div>
+          {looks === null && <p style={{ color: '#aaa', fontSize: 13 }}>불러오는 중…</p>}
+          {looks?.map((a) => (
+            <AppearanceRow key={a.id} ap={a} onChanged={loadLooks} />
+          ))}
+          <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+            <input
+              style={{ ...input, flex: 1 }}
+              value={newLabel}
+              placeholder="새 모습 이름 (예: 10년 전, 부상 후, 노년)"
+              onChange={(e) => setNewLabel(e.target.value)}
+              disabled={busy}
+            />
+            <button style={btn} onClick={addLook} disabled={busy || !newLabel.trim()}>
+              모습 추가
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -286,6 +353,7 @@ export default function Characters({
 }) {
   const [chars, setChars] = useState<Character[] | null>(null)
   const [error, setError] = useState('')
+  const [open, setOpen] = useState(true)
 
   const refresh = useCallback(() => {
     setError('')
@@ -300,17 +368,23 @@ export default function Characters({
 
   return (
     <section style={{ marginTop: 24 }}>
-      <h3>캐릭터 뱅크</h3>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      {!chars && !error && <p>불러오는 중…</p>}
-      {chars && chars.length === 0 && (
-        <p style={{ color: '#888' }}>
-          아직 등록된 캐릭터가 없습니다. 아래 회차에서 인물을 추출해 저장해보세요.
-        </p>
+      <h3 style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => setOpen((v) => !v)}>
+        {open ? '▼' : '▶'} 캐릭터 뱅크{chars ? ` (${chars.length})` : ''}
+      </h3>
+      {open && (
+        <>
+          {error && <p style={{ color: 'crimson' }}>{error}</p>}
+          {!chars && !error && <p>불러오는 중…</p>}
+          {chars && chars.length === 0 && (
+            <p style={{ color: '#888' }}>
+              아직 등록된 캐릭터가 없습니다. 아래 회차에서 인물을 추출해 저장해보세요.
+            </p>
+          )}
+          {chars?.map((ch) => (
+            <CharacterCard key={ch.id} ch={ch} refreshKey={refreshKey} onChanged={refresh} />
+          ))}
+        </>
       )}
-      {chars?.map((ch) => (
-        <CharacterCard key={ch.id} ch={ch} onChanged={refresh} />
-      ))}
     </section>
   )
 }

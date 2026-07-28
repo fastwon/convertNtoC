@@ -106,11 +106,6 @@ _APPEARANCE_PROMPT = (
     "이 캐릭터의 외형만 묘사하라. 머리색·헤어스타일·눈 색·나이대·체형·복장·특징적 요소 위주로 "
     "2~3문장. 배경·상황·감정은 제외하고 인물의 고정 외형만. 설명 없이 묘사문만 출력."
 )
-_APPEARANCE_MERGE_PROMPT = (
-    "아래 [기존 설명]과 이 이미지의 외형을 하나로 통합해 캐릭터의 고정 외형 묘사로 정리하라. "
-    "머리색·헤어스타일·눈·나이대·체형·복장 등 외형 위주로, 기존 설명의 정보(성격 특징 포함)도 "
-    "잃지 말고 반영하되 중복·모순은 정리한다. 2~4문장, 설명 없이 묘사문만 출력.\n\n[기존 설명]\n{existing}"
-)
 
 _MIME = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp",
          "gif": "image/gif"}
@@ -134,55 +129,18 @@ def describe_appearance_from_image(appearance_id: str) -> str:
         raise LLMError("참조 이미지 파일을 찾을 수 없습니다")
 
     ext = path.suffix.lower().lstrip(".")
-    existing = ap.description.strip()
-    # merge with any existing description (from 인물추출 etc.) so nothing is lost
-    prompt = _APPEARANCE_MERGE_PROMPT.format(existing=existing) if existing else _APPEARANCE_PROMPT
     provider = factory.get_provider()
     desc = provider.describe_image(
         path.read_bytes(),
-        prompt,
+        _APPEARANCE_PROMPT,
         mime_type=_MIME.get(ext, "image/jpeg"),
         system=_APPEARANCE_SYSTEM,
-        max_tokens=500,
+        max_tokens=400,
     )
     desc = desc.strip()
     if not desc:
         raise LLMError("외형 묘사 생성에 실패했습니다")
     return desc
-
-
-_MERGE_TEXT_SYSTEM = (
-    "너는 캐릭터 설정 편집자다. 두 외형/특징 설명을 하나로 자연스럽게 통합한다."
-)
-_MERGE_TEXT_PROMPT = (
-    "아래 [기존 설명]과 [새 정보]를 하나의 캐릭터 고정 외형 묘사로 통합하라. "
-    "외형(머리색·헤어스타일·눈·나이대·체형·복장)과 성격 특징을 모두 살리되 중복·모순은 정리한다. "
-    "2~4문장, 설명 없이 묘사문만 출력.\n\n[기존 설명]\n{existing}\n\n[새 정보]\n{new}"
-)
-
-
-def merge_descriptions(existing: str, new: str) -> str:
-    """Merge an existing description with newly observed info via the LLM.
-
-    Falls back gracefully so a confirm never fails just because merging did:
-    if either side is empty, return the other; if the LLM errors, append.
-    """
-    existing = (existing or "").strip()
-    new = (new or "").strip()
-    if not existing:
-        return new
-    if not new:
-        return existing
-    try:
-        provider = factory.get_provider()
-        out = provider.generate_text(
-            _MERGE_TEXT_PROMPT.format(existing=existing, new=new),
-            system=_MERGE_TEXT_SYSTEM,
-            max_tokens=500,
-        ).strip()
-        return out or f"{existing} {new}"
-    except LLMError:
-        return f"{existing} {new}"
 
 
 def extract_characters(episode_id: str) -> dict:
@@ -195,10 +153,10 @@ def extract_characters(episode_id: str) -> dict:
     bank = repo.list_characters(episode.project_id)
     existing = [{"id": c.id, "name": c.name} for c in bank]
     existing_ids = {c.id for c in bank}
+    # compare against the persona (인물 설명) that 인물추출 owns, not the outfit
     default_desc = {}
     for c in bank:
-        ap = repo.get_default_appearance(c.id)
-        default_desc[c.id] = ap.description.strip() if ap else ""
+        default_desc[c.id] = str(c.traits.get("description", "")).strip() if isinstance(c.traits, dict) else ""
 
     provider = factory.get_provider()  # raises LLMError if the active key is missing
     prompt = _build_prompt(episode.raw_text, existing)

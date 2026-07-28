@@ -68,14 +68,12 @@ def confirm(episode_id: str, body: ConfirmBody) -> dict:
         if not name:
             continue
         if item.matched_character_id and item.matched_character_id in existing_ids:
-            # approved update of an existing character — MERGE the new observation
-            # into the DEFAULT appearance's description (same policy as 외형 추출),
-            # so nothing already there (e.g. visual features) is lost.
-            ap = repo.get_default_appearance(item.matched_character_id)
-            if ap:
-                merged = svc.merge_descriptions(ap.description, item.traits)
-                repo.update_appearance(ap.id, description=merged)
-            ch = repo.get_character(item.matched_character_id)
+            # approved update of an existing character — update its persona
+            # (인물 설명; character-level). Outfit (외형) is a separate box owned
+            # by 외형 추출 on the appearance, so it's untouched here.
+            ch = repo.update_character(
+                item.matched_character_id, traits={"description": item.traits.strip()}
+            )
             if ch:
                 updated.append(asdict(ch))
             continue
