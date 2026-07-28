@@ -151,6 +151,40 @@ def describe_appearance_from_image(appearance_id: str) -> str:
     return desc
 
 
+_MERGE_TEXT_SYSTEM = (
+    "너는 캐릭터 설정 편집자다. 두 외형/특징 설명을 하나로 자연스럽게 통합한다."
+)
+_MERGE_TEXT_PROMPT = (
+    "아래 [기존 설명]과 [새 정보]를 하나의 캐릭터 고정 외형 묘사로 통합하라. "
+    "외형(머리색·헤어스타일·눈·나이대·체형·복장)과 성격 특징을 모두 살리되 중복·모순은 정리한다. "
+    "2~4문장, 설명 없이 묘사문만 출력.\n\n[기존 설명]\n{existing}\n\n[새 정보]\n{new}"
+)
+
+
+def merge_descriptions(existing: str, new: str) -> str:
+    """Merge an existing description with newly observed info via the LLM.
+
+    Falls back gracefully so a confirm never fails just because merging did:
+    if either side is empty, return the other; if the LLM errors, append.
+    """
+    existing = (existing or "").strip()
+    new = (new or "").strip()
+    if not existing:
+        return new
+    if not new:
+        return existing
+    try:
+        provider = factory.get_provider()
+        out = provider.generate_text(
+            _MERGE_TEXT_PROMPT.format(existing=existing, new=new),
+            system=_MERGE_TEXT_SYSTEM,
+            max_tokens=500,
+        ).strip()
+        return out or f"{existing} {new}"
+    except LLMError:
+        return f"{existing} {new}"
+
+
 def extract_characters(episode_id: str) -> dict:
     episode = repo.get_episode(episode_id)
     if episode is None:
