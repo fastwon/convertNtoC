@@ -138,7 +138,7 @@ function AppearanceRow({ ap, onChanged }: { ap: Appearance; onChanged: () => voi
             style={{ ...btn, marginTop: 4, fontSize: 11, padding: '3px 6px', width: '100%' }}
             onClick={extractDesc}
             disabled={busy}
-            title="참조 이미지를 AI가 보고 외형 묘사를 채웁니다"
+            title="참조 이미지를 AI가 보고, 기존 설명과 통합해 외형 묘사를 채웁니다"
           >
             외형 추출
           </button>

@@ -106,6 +106,11 @@ _APPEARANCE_PROMPT = (
     "이 캐릭터의 외형만 묘사하라. 머리색·헤어스타일·눈 색·나이대·체형·복장·특징적 요소 위주로 "
     "2~3문장. 배경·상황·감정은 제외하고 인물의 고정 외형만. 설명 없이 묘사문만 출력."
 )
+_APPEARANCE_MERGE_PROMPT = (
+    "아래 [기존 설명]과 이 이미지의 외형을 하나로 통합해 캐릭터의 고정 외형 묘사로 정리하라. "
+    "머리색·헤어스타일·눈·나이대·체형·복장 등 외형 위주로, 기존 설명의 정보(성격 특징 포함)도 "
+    "잃지 말고 반영하되 중복·모순은 정리한다. 2~4문장, 설명 없이 묘사문만 출력.\n\n[기존 설명]\n{existing}"
+)
 
 _MIME = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp",
          "gif": "image/gif"}
@@ -129,13 +134,16 @@ def describe_appearance_from_image(appearance_id: str) -> str:
         raise LLMError("참조 이미지 파일을 찾을 수 없습니다")
 
     ext = path.suffix.lower().lstrip(".")
+    existing = ap.description.strip()
+    # merge with any existing description (from 인물추출 etc.) so nothing is lost
+    prompt = _APPEARANCE_MERGE_PROMPT.format(existing=existing) if existing else _APPEARANCE_PROMPT
     provider = factory.get_provider()
     desc = provider.describe_image(
         path.read_bytes(),
-        _APPEARANCE_PROMPT,
+        prompt,
         mime_type=_MIME.get(ext, "image/jpeg"),
         system=_APPEARANCE_SYSTEM,
-        max_tokens=400,
+        max_tokens=500,
     )
     desc = desc.strip()
     if not desc:
