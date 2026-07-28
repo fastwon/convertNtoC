@@ -73,7 +73,7 @@ def _build_prompt(raw_text: str, existing: list[dict]) -> str:
 """
 
 
-def _validate_result(data: Any, existing_by_id: dict) -> list[dict]:
+def _validate_result(data: Any, existing_ids: set[str], default_desc: dict[str, str]) -> list[dict]:
     if not isinstance(data, dict) or not isinstance(data.get("characters"), list):
         raise LLMError("추출 결과 형식이 올바르지 않습니다")
     out: list[dict] = []
@@ -82,14 +82,11 @@ def _validate_result(data: Any, existing_by_id: dict) -> list[dict]:
             continue
         matched = item.get("matched_character_id")
         # drop hallucinated ids that aren't in this project's bank
-        if matched not in existing_by_id:
+        if matched not in existing_ids:
             matched = None
-        # for existing characters, surface the bank's current description so the
-        # user can compare before deciding whether to update it
-        current = None
-        if matched:
-            traits = existing_by_id[matched].traits
-            current = str(traits.get("description", "")).strip() if isinstance(traits, dict) else ""
+        # surface the default appearance's current description so the user can
+        # compare before deciding whether to update it
+        current = default_desc.get(matched, "") if matched else None
         out.append(
             {
                 "name": str(item["name"]).strip(),
@@ -155,11 +152,15 @@ def extract_characters(episode_id: str) -> dict:
 
     bank = repo.list_characters(episode.project_id)
     existing = [{"id": c.id, "name": c.name} for c in bank]
-    existing_by_id = {c.id: c for c in bank}
+    existing_ids = {c.id for c in bank}
+    default_desc = {}
+    for c in bank:
+        ap = repo.get_default_appearance(c.id)
+        default_desc[c.id] = ap.description.strip() if ap else ""
 
     provider = factory.get_provider()  # raises LLMError if the active key is missing
     prompt = _build_prompt(episode.raw_text, existing)
     data = provider.generate_json(prompt, system=SYSTEM, schema=EXTRACTION_SCHEMA)
 
-    characters = _validate_result(data, existing_by_id)
+    characters = _validate_result(data, existing_ids, default_desc)
     return {"provider": provider.name, "characters": characters}

@@ -68,11 +68,13 @@ def confirm(episode_id: str, body: ConfirmBody) -> dict:
         if not name:
             continue
         if item.matched_character_id and item.matched_character_id in existing_ids:
-            # approved update of an existing bank entry (description only;
-            # renaming stays a deliberate action in the character bank UI)
-            ch = repo.update_character(
-                item.matched_character_id, traits={"description": item.traits.strip()}
-            )
+            # approved update of an existing character — update the DEFAULT
+            # appearance's description (that's what the bank UI + prompt engine
+            # use). Renaming stays a deliberate action in the character bank UI.
+            ap = repo.get_default_appearance(item.matched_character_id)
+            if ap:
+                repo.update_appearance(ap.id, description=item.traits.strip())
+            ch = repo.get_character(item.matched_character_id)
             if ch:
                 updated.append(asdict(ch))
             continue

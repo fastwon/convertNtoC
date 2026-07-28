@@ -177,6 +177,14 @@ def list_appearances(character_id: str) -> list[Appearance]:
     return [_appearance(r) for r in rows]
 
 
+def get_default_appearance(character_id: str) -> Appearance | None:
+    looks = list_appearances(character_id)
+    for a in looks:
+        if a.is_default:
+            return a
+    return looks[0] if looks else None
+
+
 def get_appearance(appearance_id: str) -> Appearance | None:
     with db.connect() as conn:
         row = conn.execute(
