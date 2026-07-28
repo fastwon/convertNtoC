@@ -1,10 +1,10 @@
 # convertN2C — 단계별 개발 로드맵
 
-> **진행 상황:** P0 ✅ · P1 ✅ · P2 ✅ · P3 ✅ · **P4 ✅** (a 회차업로드 · b LLM추상화+Gemini무료 · c 인물추출+교차검증 · d 유저확인+캐릭터뱅크) · **P5 ✅** (글로벌메모리·세계관·회차요약·캐싱) · **다음 → P6**
+> **진행 상황:** P0 ✅ · P1 ✅ · P2 ✅ · P3 ✅ · **P4 ✅** · **P5 ✅** · **P6 ✅** (a 콘티 · b 프롬프트엔진+이미지생성 · c 무료일관성(vision) · d 공급자토글) · **다음 → P7 (대사·말풍선)**
 > ※ Gemini는 thinking 모델이라 출력 예산에 thinking 여유분(+3072) 필요 — 없으면 답변이 잘림.
 > ※ P4d 얼굴 임베딩(벡터)은 이미지 공급자 종속이라 P6로 이관. 현재는 이름·특징·참조이미지 저장까지.
-> ※ P6 진행중: P6a 콘티 ✅ · P6b 프롬프트엔진+이미지생성 ✅ (무료 Pollinations) · P6c 무료 일관성 개선 ✅ (참조이미지→Gemini vision 외형 텍스트화→프롬프트 일관 주입 + 영어번역 일관성 강조) · 다음 P6d 외부/유료 공급자 토글
-> ※ img2img는 로컬 참조이미지 공개URL이 없어 불가 → vision 텍스트 앵커 방식으로 우회. 완벽한 얼굴 일관성은 유료/좋은 GPU 필요.
+> ※ P6d 이미지 공급자 토글: Pollinations(무료 기본) + Gemini 이미지(유료·결제 필요). 외부 API(Replicate/fal)는 이후.
+> ※ img2img는 로컬 참조이미지 공개URL이 없어 불가 → vision 텍스트 앵커 방식으로 우회. 완벽한 얼굴 일관성은 유료(Gemini 이미지)/좋은 GPU 필요.
 
 > 기반: [CLAUDE.md](../CLAUDE.md) · [docs/DESIGN.md](./DESIGN.md)
 > 대상: Windows 데스크톱 EXE (PyWebView + PyInstaller, Python/FastAPI 로컬 + React SPA, LLM=Claude, 이미지=외부 API, 타인 배포·사용자 자기 키).

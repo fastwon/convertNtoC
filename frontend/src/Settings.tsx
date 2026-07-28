@@ -4,6 +4,7 @@ import {
   getStatus,
   saveKey,
   setFreeMode,
+  setImageProvider,
   type SettingsStatus,
   type Slot,
 } from './api'
@@ -109,6 +110,16 @@ export default function Settings() {
     }
   }
 
+  async function changeImageProvider(provider: 'pollinations' | 'gemini') {
+    setBusy(true)
+    try {
+      await setImageProvider(provider)
+      refresh()
+    } finally {
+      setBusy(false)
+    }
+  }
+
   if (error) return <p style={{ color: 'crimson' }}>설정 로드 오류: {error}</p>
   if (!status) return <p>불러오는 중…</p>
 
@@ -156,12 +167,51 @@ export default function Settings() {
         hint="Claude 모드용. 저장 시 models.list 호출로 검증합니다."
         onChanged={refresh}
       />
+      <div style={card}>
+        <strong>이미지 생성 공급자</strong>
+        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', cursor: 'pointer' }}>
+            <input
+              type="radio"
+              name="imgprov"
+              checked={status.image_provider === 'pollinations'}
+              disabled={busy}
+              onChange={() => changeImageProvider('pollinations')}
+            />
+            <span>
+              <b>Pollinations (무료)</b>
+              <span style={{ color: '#888', fontSize: 13, marginLeft: 6 }}>
+                키 불필요. 캐릭터 일관성은 약함.
+              </span>
+            </span>
+          </label>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', cursor: 'pointer' }}>
+            <input
+              type="radio"
+              name="imgprov"
+              checked={status.image_provider === 'gemini'}
+              disabled={busy}
+              onChange={() => changeImageProvider('gemini')}
+            />
+            <span>
+              <b>Gemini 이미지 (유료)</b>
+              <span style={{ color: '#888', fontSize: 13, marginLeft: 6 }}>
+                Gemini 키 사용. Google Cloud 결제 등록 필요. 품질·일관성 더 좋음.
+              </span>
+            </span>
+          </label>
+        </div>
+        <p style={{ color: '#999', fontSize: 12, marginTop: 8, marginBottom: 0 }}>
+          외부 API(Replicate/fal)는 이후 단계에서 추가 예정.
+        </p>
+      </div>
+
       <KeyRow
-        label="이미지 API 키"
+        label="이미지 API 키 (외부 API용 — 이후 단계)"
         slot="image"
         present={status.image.present}
         masked={status.image.masked}
-        hint="이미지 생성용. 공급자 확정(이후 단계) 전까지는 저장만 합니다."
+        hint="외부 이미지 API용. 공급자 추가 전까지는 저장만 합니다."
         onChanged={refresh}
       />
       <p style={{ color: '#999', fontSize: 12 }}>

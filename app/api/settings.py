@@ -5,7 +5,7 @@ raw key. Also exposes the free_mode toggle (Gemini free vs Claude).
 """
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from ..services.validation import (
@@ -27,6 +27,10 @@ class FreeModeBody(BaseModel):
     enabled: bool
 
 
+class ImageProviderBody(BaseModel):
+    provider: str
+
+
 def _slot(name: str) -> dict:
     val = keys.get_key(name)
     return {"present": bool(val), "masked": mask_secret(val)}
@@ -40,12 +44,14 @@ def status() -> dict:
     free_mode = config.is_free_mode()
     # ready = the key required by the active mode is present
     ready = gemini_slot["present"] if free_mode else anthropic_slot["present"]
+    image_provider = config.get_image_provider()
     return {
         "free_mode": free_mode,
         "active_provider": "gemini" if free_mode else "claude",
         "anthropic": anthropic_slot,
         "gemini": gemini_slot,
         "image": image_slot,
+        "image_provider": image_provider,
         "ready": ready,
     }
 
@@ -54,6 +60,15 @@ def status() -> dict:
 def set_free_mode(body: FreeModeBody) -> dict:
     config.set_free_mode(body.enabled)
     return {"free_mode": body.enabled}
+
+
+@router.post("/image-provider")
+def set_image_provider(body: ImageProviderBody) -> dict:
+    try:
+        config.set_image_provider(body.provider)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {"image_provider": body.provider}
 
 
 def _save(name: str, key: str, validator) -> dict:

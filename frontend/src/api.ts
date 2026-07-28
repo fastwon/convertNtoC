@@ -21,6 +21,7 @@ export type SettingsStatus = {
   anthropic: KeySlot
   gemini: KeySlot
   image: KeySlot
+  image_provider: 'pollinations' | 'gemini'
   ready: boolean
 }
 export type SaveResult = { ok: boolean; message: string; masked: string | null }
@@ -35,6 +36,14 @@ export async function setFreeMode(enabled: boolean): Promise<void> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ enabled }),
+  })
+}
+
+export async function setImageProvider(provider: 'pollinations' | 'gemini'): Promise<void> {
+  await fetch('/api/settings/image-provider', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider }),
   })
 }
 
