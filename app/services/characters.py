@@ -102,6 +102,50 @@ def _validate_result(data: Any, existing_by_id: dict) -> list[dict]:
     return out
 
 
+_APPEARANCE_SYSTEM = (
+    "너는 캐릭터 시트 분석가다. 이미지 속 인물의 외형을 이미지 생성 프롬프트에 쓸 수 있게 묘사한다."
+)
+_APPEARANCE_PROMPT = (
+    "이 캐릭터의 외형만 묘사하라. 머리색·헤어스타일·눈 색·나이대·체형·복장·특징적 요소 위주로 "
+    "2~3문장. 배경·상황·감정은 제외하고 인물의 고정 외형만. 설명 없이 묘사문만 출력."
+)
+
+_MIME = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp",
+         "gif": "image/gif"}
+
+
+def describe_appearance_from_image(appearance_id: str) -> str:
+    """Use vision to turn a reference image into a stable appearance description.
+
+    This anchors free-tier consistency: the same detailed text goes into every
+    panel prompt, so the character reads consistently even without img2img.
+    """
+    from ..storage import files
+
+    ap = repo.get_appearance(appearance_id)
+    if ap is None:
+        raise LLMError("모습을 찾을 수 없습니다")
+    if not ap.ref_image_path:
+        raise LLMError("참조 이미지가 없습니다. 먼저 이미지를 등록하세요.")
+    path = files.resolve(ap.ref_image_path)
+    if not path.exists():
+        raise LLMError("참조 이미지 파일을 찾을 수 없습니다")
+
+    ext = path.suffix.lower().lstrip(".")
+    provider = factory.get_provider()
+    desc = provider.describe_image(
+        path.read_bytes(),
+        _APPEARANCE_PROMPT,
+        mime_type=_MIME.get(ext, "image/jpeg"),
+        system=_APPEARANCE_SYSTEM,
+        max_tokens=400,
+    )
+    desc = desc.strip()
+    if not desc:
+        raise LLMError("외형 묘사 생성에 실패했습니다")
+    return desc
+
+
 def extract_characters(episode_id: str) -> dict:
     episode = repo.get_episode(episode_id)
     if episode is None:

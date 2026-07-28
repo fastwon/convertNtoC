@@ -258,6 +258,13 @@ export async function uploadRefImage(appearanceId: string, file: File): Promise<
     await fetch(`/api/appearances/${appearanceId}/ref-image`, { method: 'POST', body: fd }),
   )
 }
+export async function describeAppearanceFromImage(
+  appearanceId: string,
+): Promise<{ description: string }> {
+  return jsonOrThrow(
+    await fetch(`/api/appearances/${appearanceId}/describe-from-image`, { method: 'POST' }),
+  )
+}
 // ---- global memory ----
 export type Usage = {
   input: number

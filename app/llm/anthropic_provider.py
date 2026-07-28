@@ -7,6 +7,7 @@ services that call this (opus for reasoning, haiku for classification).
 """
 from __future__ import annotations
 
+import base64
 from typing import Any
 
 import anthropic
@@ -103,3 +104,31 @@ class AnthropicProvider:
             return parse_json_lenient(text)
         except Exception as e:  # noqa: BLE001
             raise LLMError("Claude가 올바른 JSON을 반환하지 않았습니다") from e
+
+    def describe_image(
+        self,
+        image: bytes,
+        prompt: str,
+        *,
+        mime_type: str = "image/jpeg",
+        system: str | None = None,
+        max_tokens: int = 512,
+    ) -> str:
+        b64 = base64.standard_b64encode(image).decode()
+        content = [
+            {"type": "image", "source": {"type": "base64", "media_type": mime_type, "data": b64}},
+            {"type": "text", "text": prompt},
+        ]
+        kwargs: dict = {
+            "model": self._model,
+            "max_tokens": max_tokens,
+            "messages": [{"role": "user", "content": content}],
+        }
+        if system:
+            kwargs["system"] = system
+        try:
+            msg = self._client.messages.create(**kwargs)
+        except Exception as e:  # noqa: BLE001
+            raise LLMError("Claude 호출 실패") from e
+        self._record_usage(msg)
+        return "".join(b.text for b in msg.content if b.type == "text")

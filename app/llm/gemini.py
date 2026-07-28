@@ -119,3 +119,27 @@ class GeminiProvider:
             return parse_json_lenient(resp.text or "")
         except Exception as e:  # noqa: BLE001
             raise LLMError("Gemini가 올바른 JSON을 반환하지 않았습니다") from e
+
+    def describe_image(
+        self,
+        image: bytes,
+        prompt: str,
+        *,
+        mime_type: str = "image/jpeg",
+        system: str | None = None,
+        max_tokens: int = 512,
+    ) -> str:
+        config = types.GenerateContentConfig(
+            system_instruction=system,
+            max_output_tokens=max_tokens + _THINKING_HEADROOM,
+        )
+        contents = [types.Part.from_bytes(data=image, mime_type=mime_type), prompt]
+        try:
+            resp = self._client.models.generate_content(
+                model=self._model, contents=contents, config=config
+            )
+        except Exception as e:  # noqa: BLE001
+            raise LLMError(_friendly_error(e)) from e
+        self._record_usage(resp)
+        self._check_truncated(resp)
+        return resp.text or ""

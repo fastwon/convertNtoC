@@ -136,6 +136,14 @@ class AppearancePatch(BaseModel):
     source_episode_number: int | None = None
 
 
+@router.post("/api/appearances/{appearance_id}/describe-from-image")
+def describe_from_image(appearance_id: str) -> dict:
+    try:
+        return {"description": svc.describe_appearance_from_image(appearance_id)}
+    except LLMError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
 @router.get("/api/characters/{character_id}/appearances")
 def list_appearances(character_id: str) -> list[dict]:
     if repo.get_character(character_id) is None:

@@ -39,3 +39,15 @@ class LLMProvider(Protocol):
         """Return parsed JSON. `schema` (JSON Schema) is enforced where the
         provider supports it; otherwise the prompt must describe the shape."""
         ...
+
+    def describe_image(
+        self,
+        image: bytes,
+        prompt: str,
+        *,
+        mime_type: str = "image/jpeg",
+        system: str | None = None,
+        max_tokens: int = 512,
+    ) -> str:
+        """Vision: describe an image in text (e.g. a character's appearance)."""
+        ...

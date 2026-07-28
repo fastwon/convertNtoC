@@ -3,6 +3,7 @@ import {
   createAppearance,
   deleteAppearance,
   deleteCharacter,
+  describeAppearanceFromImage,
   listAppearances,
   listCharacters,
   makeDefaultAppearance,
@@ -76,6 +77,17 @@ function AppearanceRow({ ap, onChanged }: { ap: Appearance; onChanged: () => voi
       if (fileRef.current) fileRef.current.value = ''
     }
   }
+  async function extractDesc() {
+    setBusy(true)
+    try {
+      const r = await describeAppearanceFromImage(ap.id)
+      setDesc(r.description) // fills the textarea; user reviews then saves
+    } catch (err: unknown) {
+      alert(String(err instanceof Error ? err.message : err))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <div
@@ -115,12 +127,22 @@ function AppearanceRow({ ap, onChanged }: { ap: Appearance; onChanged: () => voi
         </div>
         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onFile} />
         <button
-          style={{ ...btn, marginTop: 4, fontSize: 11, padding: '3px 6px' }}
+          style={{ ...btn, marginTop: 4, fontSize: 11, padding: '3px 6px', width: '100%' }}
           onClick={() => fileRef.current?.click()}
           disabled={busy}
         >
           이미지
         </button>
+        {hasImg && (
+          <button
+            style={{ ...btn, marginTop: 4, fontSize: 11, padding: '3px 6px', width: '100%' }}
+            onClick={extractDesc}
+            disabled={busy}
+            title="참조 이미지를 AI가 보고 외형 묘사를 채웁니다"
+          >
+            외형 추출
+          </button>
+        )}
       </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
