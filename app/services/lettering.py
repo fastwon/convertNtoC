@@ -150,22 +150,49 @@ def letter_panel(panel_id: str) -> dict:
     margin = int(W * 0.03)
     max_bubble_w = W * 0.6
 
+    # complexity above this at the best spot => no clear empty space => use a band
+    FLAT_THRESHOLD = 6.0
+    gap = int(margin * 0.5)
+
     occupied: list[tuple] = []
+    inplace: list[tuple] = []  # (x, y, dtype, m)
+    band: list[tuple] = []  # (dtype, m)
     count = 0
     for d in panel.dialogue or []:
         text = str(d.get("text", "")).strip()
         if not text:
             continue
+        count += 1
         dtype = str(d.get("type", "speech")).strip().lower()
         speaker = str(d.get("speaker", "")).strip()
         m = _measure(draw, dtype, speaker, text, body, name, max_bubble_w)
         x, y = _place(edges, m["bw"], m["bh"], W, H, margin, occupied)
+        score = _busyness(edges, x, y, m["bw"], m["bh"])
+        fits = score <= FLAT_THRESHOLD and not _overlaps(x, y, m["bw"], m["bh"], occupied, gap)
+        if fits:
+            inplace.append((x, y, dtype, m))
+            occupied.append((x, y, x + m["bw"], y + m["bh"]))
+        else:
+            band.append((dtype, m))  # goes into a white band below the image
+
+    for x, y, dtype, m in inplace:
         _draw(draw, x, y, dtype, m, body, name)
-        occupied.append((x, y, x + m["bw"], y + m["bh"]))
-        count += 1
+
+    out = img
+    if band:
+        band_pad = margin
+        band_h = band_pad * 2 + sum(m["bh"] for _, m in band) + gap * (len(band) - 1)
+        canvas = Image.new("RGB", (W, H + band_h), (255, 255, 255))
+        canvas.paste(img, (0, 0))
+        bd = ImageDraw.Draw(canvas)
+        yy = H + band_pad
+        for dtype, m in band:
+            _draw(bd, margin, yy, dtype, m, body, name)
+            yy += m["bh"] + gap
+        out = canvas
 
     buf = BytesIO()
-    img.save(buf, format="JPEG", quality=90)
+    out.save(buf, format="JPEG", quality=90)
     rel = files.save_bytes(_project_id(panel), "panels", f"{panel_id}_lettered.jpg", buf.getvalue())
     repo.update_panel(panel_id, lettered_path=rel)
     return {"lettered_path": rel, "bubbles": count}
