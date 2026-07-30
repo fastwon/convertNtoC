@@ -1,15 +1,14 @@
 """Dialogue lettering: composite speech bubbles onto a panel's cut image.
 
-Bubbles are placed on the *flattest* regions of the image (low edge density) so
-they avoid faces/figures, which are detail-rich. This keeps text off characters'
-faces instead of always stacking at the top-left.
+Bubbles are drawn at the positions the user placed them (each dialogue item
+carries normalized x,y in 0..1). No automatic placement — the user is in control.
 """
 from __future__ import annotations
 
 from io import BytesIO
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageStat
+from PIL import Image, ImageDraw, ImageFont
 
 from ..storage import files
 from ..storage import repository as repo
@@ -89,47 +88,6 @@ def _draw(draw, x, y, dtype, m, body_font, name_font):
         ty += m["line_h"]
 
 
-def _busyness(edges: Image.Image, x: int, y: int, w: int, h: int) -> float:
-    """Mean edge intensity under a box — high means detail (face/figure)."""
-    box = (max(0, x), max(0, y), min(edges.width, x + w), min(edges.height, y + h))
-    if box[2] <= box[0] or box[3] <= box[1]:
-        return 1e9
-    return ImageStat.Stat(edges.crop(box)).mean[0]
-
-
-def _overlaps(x: int, y: int, w: int, h: int, rects: list[tuple], gap: int) -> bool:
-    for rx0, ry0, rx1, ry1 in rects:
-        if x < rx1 + gap and x + w > rx0 - gap and y < ry1 + gap and y + h > ry0 - gap:
-            return True
-    return False
-
-
-def _place(edges, bw, bh, W, H, margin, occupied) -> tuple[int, int]:
-    """Pick the flattest non-overlapping spot; fall back to stacking."""
-    bw = min(bw, W - 2 * margin)
-    xs = [margin, (W - bw) // 2, max(margin, W - margin - bw)]
-    y_max = max(margin, H - bh - margin)
-    step = max(24, (y_max - margin) // 9) if y_max > margin else 1
-    ys = list(range(margin, y_max + 1, step))
-    gap = int(margin * 0.5)
-
-    best: tuple[int, int] | None = None
-    best_score = 1e18
-    for y in ys:
-        for x in xs:
-            if _overlaps(x, y, bw, bh, occupied, gap):
-                continue
-            score = _busyness(edges, x, y, bw, bh)
-            if score < best_score:
-                best_score = score
-                best = (x, y)
-    if best is not None:
-        return best
-    # everything overlaps: stack below the lowest occupied box
-    y = (max((r[3] for r in occupied), default=margin)) + gap
-    return margin, min(y, max(margin, H - bh - margin))
-
-
 def letter_panel(panel_id: str) -> dict:
     panel = repo.get_panel(panel_id)
     if panel is None:
@@ -143,22 +101,13 @@ def letter_panel(panel_id: str) -> dict:
     img = Image.open(src).convert("RGB")
     W, H = img.size
     draw = ImageDraw.Draw(img)
-    edges = img.convert("L").filter(ImageFilter.FIND_EDGES)
-
     body = _load_font(_REGULAR, max(16, W // 34))
     name = _load_font(_BOLD, max(13, W // 46))
     margin = int(W * 0.03)
-    max_bubble_w = W * 0.6
+    max_bubble_w = W * 0.55
 
-    # complexity above this at the best spot => no clear empty space => use a band
-    FLAT_THRESHOLD = 6.0
-    gap = int(margin * 0.5)
-
-    occupied: list[tuple] = []
-    inplace: list[tuple] = []  # (x, y, dtype, m)
-    band: list[tuple] = []  # (dtype, m)
     count = 0
-    for d in panel.dialogue or []:
+    for i, d in enumerate(panel.dialogue or []):
         text = str(d.get("text", "")).strip()
         if not text:
             continue
@@ -166,33 +115,19 @@ def letter_panel(panel_id: str) -> dict:
         dtype = str(d.get("type", "speech")).strip().lower()
         speaker = str(d.get("speaker", "")).strip()
         m = _measure(draw, dtype, speaker, text, body, name, max_bubble_w)
-        x, y = _place(edges, m["bw"], m["bh"], W, H, margin, occupied)
-        score = _busyness(edges, x, y, m["bw"], m["bh"])
-        fits = score <= FLAT_THRESHOLD and not _overlaps(x, y, m["bw"], m["bh"], occupied, gap)
-        if fits:
-            inplace.append((x, y, dtype, m))
-            occupied.append((x, y, x + m["bw"], y + m["bh"]))
-        else:
-            band.append((dtype, m))  # goes into a white band below the image
 
-    for x, y, dtype, m in inplace:
+        xr, yr = d.get("x"), d.get("y")
+        if isinstance(xr, (int, float)) and isinstance(yr, (int, float)):
+            x, y = int(xr * W), int(yr * H)
+        else:  # no saved position → simple stagger as a starting point
+            x = margin
+            y = margin + (i % 6) * (m["bh"] + int(margin * 0.6))
+        x = max(0, min(x, W - m["bw"]))
+        y = max(0, min(y, H - m["bh"]))
         _draw(draw, x, y, dtype, m, body, name)
 
-    out = img
-    if band:
-        band_pad = margin
-        band_h = band_pad * 2 + sum(m["bh"] for _, m in band) + gap * (len(band) - 1)
-        canvas = Image.new("RGB", (W, H + band_h), (255, 255, 255))
-        canvas.paste(img, (0, 0))
-        bd = ImageDraw.Draw(canvas)
-        yy = H + band_pad
-        for dtype, m in band:
-            _draw(bd, margin, yy, dtype, m, body, name)
-            yy += m["bh"] + gap
-        out = canvas
-
     buf = BytesIO()
-    out.save(buf, format="JPEG", quality=90)
+    img.save(buf, format="JPEG", quality=90)
     rel = files.save_bytes(_project_id(panel), "panels", f"{panel_id}_lettered.jpg", buf.getvalue())
     repo.update_panel(panel_id, lettered_path=rel)
     return {"lettered_path": rel, "bubbles": count}

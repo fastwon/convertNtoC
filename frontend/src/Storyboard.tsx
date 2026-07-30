@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react'
 import {
   deletePanel,
   generatePanelImage,
@@ -13,74 +13,147 @@ import {
 } from './api'
 import { btn, btnDanger, btnPrimary, input } from './ui'
 
+function bubbleStyle(type: PanelDialogue['type']): CSSProperties {
+  const base: CSSProperties = {
+    position: 'absolute',
+    maxWidth: '55%',
+    padding: '4px 8px',
+    fontSize: 12,
+    lineHeight: 1.3,
+    cursor: 'move',
+    userSelect: 'none',
+    touchAction: 'none',
+    boxSizing: 'border-box',
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+  }
+  if (type === 'narration') return { ...base, background: '#fff8e1', border: '2px solid #3c3c3c', borderRadius: 6 }
+  if (type === 'thought') return { ...base, background: '#fff', border: '2px dashed #8a8a8a', borderRadius: 9999 }
+  return { ...base, background: '#fff', border: '2px solid #141414', borderRadius: 12 }
+}
+
+function DraggableBubble({
+  d,
+  containerRef,
+  onMove,
+}: {
+  d: PanelDialogue
+  containerRef: RefObject<HTMLDivElement | null>
+  onMove: (x: number, y: number) => void
+}) {
+  const start = useRef<{ px: number; py: number; x: number; y: number } | null>(null)
+  function down(e: React.PointerEvent) {
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+    start.current = { px: e.clientX, py: e.clientY, x: d.x ?? 0, y: d.y ?? 0 }
+  }
+  function move(e: React.PointerEvent) {
+    if (!start.current || !containerRef.current) return
+    const rect = containerRef.current.getBoundingClientRect()
+    let nx = start.current.x + (e.clientX - start.current.px) / rect.width
+    let ny = start.current.y + (e.clientY - start.current.py) / rect.height
+    nx = Math.max(0, Math.min(0.95, nx))
+    ny = Math.max(0, Math.min(0.95, ny))
+    onMove(nx, ny)
+  }
+  function up() {
+    start.current = null
+  }
+  const label =
+    d.type === 'narration' ? '' : d.type === 'thought' ? `${d.speaker} (생각)` : d.speaker
+  return (
+    <div
+      style={{ ...bubbleStyle(d.type ?? 'speech'), left: `${(d.x ?? 0) * 100}%`, top: `${(d.y ?? 0) * 100}%` }}
+      onPointerDown={down}
+      onPointerMove={move}
+      onPointerUp={up}
+    >
+      {label && <div style={{ fontSize: 10, color: '#5a5a5a', fontWeight: 700 }}>{label}</div>}
+      {d.text || '(내용 없음)'}
+    </div>
+  )
+}
+
+const withDefaults = (list: PanelDialogue[]): PanelDialogue[] =>
+  list.map((d, i) => ({
+    ...d,
+    x: d.x ?? 0.06,
+    y: d.y ?? Math.min(0.85, 0.06 + (i % 6) * 0.14),
+  }))
+
 function PanelCard({ panel, index, onChanged }: { panel: Panel; index: number; onChanged: () => void }) {
   const [scene, setScene] = useState(panel.scene)
   const [busy, setBusy] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [imgV, setImgV] = useState(0)
   const [hasImg, setHasImg] = useState(!!panel.image_path)
   const [genning, setGenning] = useState(false)
-  const [imgError, setImgError] = useState('')
-  const [dialogue, setDialogue] = useState<PanelDialogue[]>(panel.dialogue ?? [])
+  const [msg, setMsg] = useState('')
+  const [dialogue, setDialogue] = useState<PanelDialogue[]>(withDefaults(panel.dialogue ?? []))
   const [lettering, setLettering] = useState(false)
   const [hasLettered, setHasLettered] = useState(!!panel.lettered_path)
-  const [showLettered, setShowLettered] = useState(!!panel.lettered_path)
+  const [showLettered, setShowLettered] = useState(false)
   const [letterV, setLetterV] = useState(0)
+  const containerRef = useRef<HTMLDivElement>(null)
 
-  async function genImage() {
-    setGenning(true)
-    setImgError('')
-    try {
-      await generatePanelImage(panel.id)
-      setHasImg(true)
-      setImgV((v) => v + 1)
-    } catch (e: unknown) {
-      setImgError(String(e instanceof Error ? e.message : e))
-    } finally {
-      setGenning(false)
-    }
-  }
   function patchLine(i: number, patch: Partial<PanelDialogue>) {
     setDialogue((ds) => ds.map((d, j) => (j === i ? { ...d, ...patch } : d)))
+    setShowLettered(false)
   }
   function addLine() {
-    setDialogue((ds) => [...ds, { type: 'speech', speaker: '', text: '' }])
+    setDialogue((ds) => [...ds, { type: 'speech', speaker: '', text: '새 대사', x: 0.1, y: 0.1 }])
+    setShowLettered(false)
   }
   function removeLine(i: number) {
     setDialogue((ds) => ds.filter((_, j) => j !== i))
+    setShowLettered(false)
   }
-  async function saveDialogue() {
+
+  async function saveScene() {
     setBusy(true)
+    setMsg('')
     try {
-      await updatePanel(panel.id, { dialogue })
+      await updatePanel(panel.id, { scene })
+      setMsg('장면 저장됨')
     } finally {
       setBusy(false)
     }
   }
+  async function saveDialogue() {
+    setBusy(true)
+    setMsg('')
+    try {
+      await updatePanel(panel.id, { dialogue })
+      setMsg('대사·위치 저장됨')
+    } finally {
+      setBusy(false)
+    }
+  }
+  async function genImage() {
+    setGenning(true)
+    setMsg('')
+    try {
+      await generatePanelImage(panel.id)
+      setHasImg(true)
+      setImgV((v) => v + 1)
+      setShowLettered(false)
+    } catch (e: unknown) {
+      setMsg(String(e instanceof Error ? e.message : e))
+    } finally {
+      setGenning(false)
+    }
+  }
   async function doLetter() {
     setLettering(true)
-    setImgError('')
+    setMsg('')
     try {
-      await updatePanel(panel.id, { dialogue }) // persist edits first
+      await updatePanel(panel.id, { dialogue }) // persist positions first
       await letterPanel(panel.id)
       setHasLettered(true)
       setShowLettered(true)
       setLetterV((v) => v + 1)
     } catch (e: unknown) {
-      setImgError(String(e instanceof Error ? e.message : e))
+      setMsg(String(e instanceof Error ? e.message : e))
     } finally {
       setLettering(false)
-    }
-  }
-
-  async function save() {
-    setBusy(true)
-    setSaved(false)
-    try {
-      await updatePanel(panel.id, { scene })
-      setSaved(true)
-    } finally {
-      setBusy(false)
     }
   }
   async function remove() {
@@ -98,30 +171,15 @@ function PanelCard({ panel, index, onChanged }: { panel: Panel; index: number; o
     <div style={{ border: '1px solid #e3e3e3', borderRadius: 8, padding: 12, marginBottom: 8 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <strong>컷 {index + 1}</strong>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {saved && <span style={{ color: 'green', fontSize: 12, alignSelf: 'center' }}>저장됨 ✓</span>}
-          <button style={{ ...btn, fontSize: 12 }} onClick={save} disabled={busy}>
-            저장
-          </button>
-          <button style={{ ...btnDanger, fontSize: 12 }} onClick={remove} disabled={busy}>
-            삭제
-          </button>
-        </div>
+        <button style={{ ...btnDanger, fontSize: 12 }} onClick={remove} disabled={busy}>
+          컷 삭제
+        </button>
       </div>
 
       {panel.characters && panel.characters.length > 0 && (
         <div style={{ margin: '6px 0', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {panel.characters.map((c, i) => (
-            <span
-              key={i}
-              style={{
-                fontSize: 12,
-                background: '#eef4ff',
-                color: '#2456a6',
-                borderRadius: 4,
-                padding: '1px 6px',
-              }}
-            >
+            <span key={i} style={{ fontSize: 12, background: '#eef4ff', color: '#2456a6', borderRadius: 4, padding: '1px 6px' }}>
               {c.name}
               {c.appearance_label && c.appearance_label !== '기본' ? ` · ${c.appearance_label}` : ''}
             </span>
@@ -129,128 +187,84 @@ function PanelCard({ panel, index, onChanged }: { panel: Panel; index: number; o
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 12 }}>
-        <div style={{ flexShrink: 0 }}>
-          <div
-            style={{
-              width: 160,
-              height: 160,
-              borderRadius: 6,
-              border: '1px solid #ddd',
-              background: '#fafafa',
-              overflow: 'hidden',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+      {/* editing canvas: image + draggable bubbles */}
+      <div ref={containerRef} style={{ position: 'relative', width: '100%', maxWidth: 380, margin: '8px auto', background: '#fafafa', borderRadius: 6, minHeight: 60 }}>
+        {hasImg ? (
+          <img
+            src={showLettered && hasLettered ? letteredImageUrl(panel.id, letterV) : panelImageUrl(panel.id, imgV)}
+            alt={`컷 ${index + 1}`}
+            style={{ width: '100%', display: 'block', borderRadius: 6 }}
+          />
+        ) : (
+          <div style={{ padding: 24, textAlign: 'center', color: '#bbb', fontSize: 13 }}>이미지 없음</div>
+        )}
+        {hasImg && !showLettered &&
+          dialogue.map((d, i) => (
+            <DraggableBubble key={i} d={d} containerRef={containerRef} onMove={(x, y) => patchLine(i, { x, y })} />
+          ))}
+      </div>
+      {hasImg && !showLettered && (
+        <div style={{ textAlign: 'center', fontSize: 11, color: '#aaa', marginTop: -2 }}>
+          말풍선을 끌어서 원하는 위치에 놓으세요
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+        <button style={btn} onClick={genImage} disabled={genning}>
+          {genning ? '생성 중…' : hasImg ? '이미지 재생성' : '이미지 생성'}
+        </button>
+        <button style={btnPrimary} onClick={doLetter} disabled={lettering || !hasImg}>
+          {lettering ? '합성 중…' : '대사 합성'}
+        </button>
+        {hasLettered && (
+          <button style={btn} onClick={() => setShowLettered((v) => !v)}>
+            {showLettered ? '편집(원본)' : '합성본 보기'}
+          </button>
+        )}
+      </div>
+      {msg && <p style={{ textAlign: 'center', color: msg.includes('실패') || msg.includes('오류') ? 'crimson' : '#2d7d2d', fontSize: 12 }}>{msg}</p>}
+
+      <div style={{ fontSize: 12, color: '#888', marginTop: 8 }}>장면 묘사 (이미지 생성 기준)</div>
+      <textarea style={{ ...input, minHeight: 54, marginTop: 2, resize: 'vertical' }} value={scene} onChange={(e) => setScene(e.target.value)} />
+      <button style={{ ...btn, fontSize: 12, marginTop: 4 }} onClick={saveScene} disabled={busy}>
+        장면 저장
+      </button>
+
+      <div style={{ fontSize: 12, color: '#888', marginTop: 10 }}>대사 (위 이미지에서 드래그로 위치 조정)</div>
+      {dialogue.map((d, i) => (
+        <div key={i} style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+          <select
+            style={{ ...input, width: 66, padding: 6 }}
+            value={d.type ?? 'speech'}
+            onChange={(e) => {
+              const t = e.target.value as PanelDialogue['type']
+              patchLine(i, t === 'narration' ? { type: t, speaker: '' } : { type: t })
             }}
           >
-            {hasImg ? (
-              <img
-                src={
-                  showLettered && hasLettered
-                    ? letteredImageUrl(panel.id, letterV)
-                    : panelImageUrl(panel.id, imgV)
-                }
-                alt={`컷 ${index + 1}`}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            ) : (
-              <span style={{ color: '#bbb', fontSize: 12 }}>이미지 없음</span>
-            )}
-          </div>
-          <button
-            style={{ ...btn, marginTop: 6, fontSize: 12, width: '100%' }}
-            onClick={genImage}
-            disabled={genning}
-          >
-            {genning ? '생성 중…' : hasImg ? '이미지 재생성' : '이미지 생성'}
-          </button>
-          <button
-            style={{ ...btn, marginTop: 4, fontSize: 12, width: '100%' }}
-            onClick={doLetter}
-            disabled={lettering || !hasImg}
-            title="대사를 이미지에 말풍선으로 합성합니다"
-          >
-            {lettering ? '합성 중…' : '대사 합성'}
-          </button>
-          {hasLettered && (
-            <button
-              style={{ ...btn, marginTop: 4, fontSize: 11, width: '100%' }}
-              onClick={() => setShowLettered((v) => !v)}
-            >
-              {showLettered ? '원본 보기' : '대사본 보기'}
-            </button>
+            <option value="speech">대사</option>
+            <option value="thought">생각</option>
+            <option value="narration">지문</option>
+          </select>
+          {d.type === 'narration' ? (
+            <span style={{ width: 74, fontSize: 11, color: '#aaa', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              (화자 없음)
+            </span>
+          ) : (
+            <input style={{ ...input, width: 74 }} value={d.speaker} placeholder="화자" onChange={(e) => patchLine(i, { speaker: e.target.value })} />
           )}
+          <input style={{ ...input, flex: 1 }} value={d.text} placeholder="내용" onChange={(e) => patchLine(i, { text: e.target.value })} />
+          <button style={{ ...btnDanger, fontSize: 12 }} onClick={() => removeLine(i)}>
+            ✕
+          </button>
         </div>
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, color: '#888' }}>장면 묘사 (이미지 생성 기준)</div>
-          <textarea
-            style={{ ...input, minHeight: 70, marginTop: 2, resize: 'vertical' }}
-            value={scene}
-            onChange={(e) => setScene(e.target.value)}
-            disabled={busy}
-          />
-          {imgError && <p style={{ color: 'crimson', fontSize: 12, margin: '4px 0 0' }}>{imgError}</p>}
-
-          <div style={{ fontSize: 12, color: '#888', marginTop: 8 }}>대사 (말풍선으로 합성됨)</div>
-          {dialogue.map((d, i) => (
-            <div key={i} style={{ display: 'flex', gap: 4, marginTop: 4 }}>
-              <select
-                style={{ ...input, width: 70, padding: 6 }}
-                value={d.type ?? 'speech'}
-                onChange={(e) => {
-                  const t = e.target.value as PanelDialogue['type']
-                  // 지문은 화자가 없으므로 화자를 비운다
-                  patchLine(i, t === 'narration' ? { type: t, speaker: '' } : { type: t })
-                }}
-              >
-                <option value="speech">대사</option>
-                <option value="thought">생각</option>
-                <option value="narration">지문</option>
-              </select>
-              {d.type === 'narration' ? (
-                <span
-                  style={{
-                    width: 80,
-                    fontSize: 12,
-                    color: '#aaa',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  (화자 없음)
-                </span>
-              ) : (
-                <input
-                  style={{ ...input, width: 80 }}
-                  value={d.speaker}
-                  placeholder="화자"
-                  onChange={(e) => patchLine(i, { speaker: e.target.value })}
-                />
-              )}
-              <input
-                style={{ ...input, flex: 1 }}
-                value={d.text}
-                placeholder="내용"
-                onChange={(e) => patchLine(i, { text: e.target.value })}
-              />
-              <button style={{ ...btnDanger, fontSize: 12 }} onClick={() => removeLine(i)}>
-                ✕
-              </button>
-            </div>
-          ))}
-          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-            <button style={{ ...btn, fontSize: 12 }} onClick={addLine}>
-              + 대사
-            </button>
-            <button style={{ ...btn, fontSize: 12 }} onClick={saveDialogue} disabled={busy}>
-              대사 저장
-            </button>
-          </div>
-        </div>
+      ))}
+      <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+        <button style={{ ...btn, fontSize: 12 }} onClick={addLine}>
+          + 대사
+        </button>
+        <button style={{ ...btn, fontSize: 12 }} onClick={saveDialogue} disabled={busy}>
+          대사·위치 저장
+        </button>
       </div>
     </div>
   )
@@ -271,8 +285,7 @@ export default function Storyboard({ episodeId }: { episodeId: string }) {
   }, [load])
 
   async function generate() {
-    if (panels && panels.length > 0 && !confirm('기존 콘티를 새로 생성하면 현재 컷들이 교체됩니다. 계속할까요?'))
-      return
+    if (panels && panels.length > 0 && !confirm('기존 콘티를 새로 생성하면 현재 컷들이 교체됩니다. 계속할까요?')) return
     setBusy(true)
     setError('')
     try {
@@ -291,10 +304,7 @@ export default function Storyboard({ episodeId }: { episodeId: string }) {
         <button style={btnPrimary} onClick={generate} disabled={busy}>
           {busy ? '콘티 생성 중…' : panels && panels.length > 0 ? '콘티 다시 생성' : '콘티 생성'}
         </button>
-        {panels && panels.length > 0 && (
-          <span style={{ color: '#888', fontSize: 13 }}>{panels.length}개 컷</span>
-        )}
-        <span style={{ color: '#aaa', fontSize: 12 }}>(이미지 생성은 다음 단계에서 추가됩니다)</span>
+        {panels && panels.length > 0 && <span style={{ color: '#888', fontSize: 13 }}>{panels.length}개 컷</span>}
       </div>
       {error && <p style={{ color: 'crimson' }}>{error}</p>}
       <div style={{ marginTop: 10 }}>

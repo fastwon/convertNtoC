@@ -310,7 +310,13 @@ export async function summarizeEpisode(episodeId: string): Promise<SummarizeResu
 // ---- storyboard (콘티) ----
 export type PanelCharacter = { name: string; appearance_label: string }
 export type DialogueType = 'speech' | 'thought' | 'narration'
-export type PanelDialogue = { type?: DialogueType; speaker: string; text: string }
+export type PanelDialogue = {
+  type?: DialogueType
+  speaker: string
+  text: string
+  x?: number // bubble top-left, normalized 0..1
+  y?: number
+}
 export type Panel = {
   id: string
   episode_id: string
