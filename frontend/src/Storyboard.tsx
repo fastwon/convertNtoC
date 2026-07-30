@@ -199,19 +199,38 @@ function PanelCard({ panel, index, onChanged }: { panel: Panel; index: number; o
               <select
                 style={{ ...input, width: 70, padding: 6 }}
                 value={d.type ?? 'speech'}
-                onChange={(e) => patchLine(i, { type: e.target.value as PanelDialogue['type'] })}
+                onChange={(e) => {
+                  const t = e.target.value as PanelDialogue['type']
+                  // 지문은 화자가 없으므로 화자를 비운다
+                  patchLine(i, t === 'narration' ? { type: t, speaker: '' } : { type: t })
+                }}
               >
                 <option value="speech">대사</option>
                 <option value="thought">생각</option>
                 <option value="narration">지문</option>
               </select>
-              <input
-                style={{ ...input, width: 80 }}
-                value={d.speaker}
-                placeholder="화자"
-                disabled={d.type === 'narration'}
-                onChange={(e) => patchLine(i, { speaker: e.target.value })}
-              />
+              {d.type === 'narration' ? (
+                <span
+                  style={{
+                    width: 80,
+                    fontSize: 12,
+                    color: '#aaa',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  (화자 없음)
+                </span>
+              ) : (
+                <input
+                  style={{ ...input, width: 80 }}
+                  value={d.speaker}
+                  placeholder="화자"
+                  onChange={(e) => patchLine(i, { speaker: e.target.value })}
+                />
+              )}
               <input
                 style={{ ...input, flex: 1 }}
                 value={d.text}
