@@ -56,39 +56,55 @@ def _draw_bubble(
     draw: ImageDraw.ImageDraw,
     x: int,
     y: int,
+    dtype: str,
     speaker: str,
     text: str,
     body_font: ImageFont.FreeTypeFont,
     name_font: ImageFont.FreeTypeFont,
     max_w: float,
 ) -> int:
-    """Draw one bubble at (x, y). Returns its height."""
+    """Draw one text box at (x, y) styled by type. Returns its height.
+
+    speech    — white rounded bubble, black outline, speaker name
+    thought   — white capsule (large radius), soft gray outline, "(생각)"
+    narration — cream caption box, near-square corners, no speaker
+    """
+    is_narration = dtype == "narration"
+    is_thought = dtype == "thought"
+
     pad = max(8, int(body_font.size * 0.5))
     line_h = int(body_font.size * 1.32)
     lines = _wrap(draw, text, body_font, max_w)
     text_w = max((draw.textlength(ln, font=body_font) for ln in lines), default=0)
 
+    label = ""
+    if not is_narration and speaker:
+        label = f"{speaker} (생각)" if is_thought else speaker
     name_h = 0
-    if speaker:
+    if label:
         name_h = int(name_font.size * 1.3)
-        text_w = max(text_w, draw.textlength(speaker, font=name_font))
+        text_w = max(text_w, draw.textlength(label, font=name_font))
 
     bubble_w = int(text_w + pad * 2)
     bubble_h = int(name_h + len(lines) * line_h + pad * 2)
 
+    if is_narration:
+        fill, outline, radius, ow = (255, 248, 225), (60, 60, 60), 6, 2
+    elif is_thought:
+        fill, outline, radius, ow = (255, 255, 255), (120, 120, 120), int(bubble_h * 0.5), 2
+    else:
+        fill, outline, radius, ow = (255, 255, 255), (20, 20, 20), max(10, int(body_font.size * 0.7)), max(2, int(body_font.size * 0.09))
+
     draw.rounded_rectangle(
-        [x, y, x + bubble_w, y + bubble_h],
-        radius=max(10, int(body_font.size * 0.7)),
-        fill=(255, 255, 255),
-        outline=(20, 20, 20),
-        width=max(2, int(body_font.size * 0.09)),
+        [x, y, x + bubble_w, y + bubble_h], radius=radius, fill=fill, outline=outline, width=ow
     )
     ty = y + pad
-    if speaker:
-        draw.text((x + pad, ty), speaker, font=name_font, fill=(90, 90, 90))
+    if label:
+        draw.text((x + pad, ty), label, font=name_font, fill=(90, 90, 90))
         ty += name_h
+    color = (70, 60, 40) if is_narration else (15, 15, 15)
     for ln in lines:
-        draw.text((x + pad, ty), ln, font=body_font, fill=(15, 15, 15))
+        draw.text((x + pad, ty), ln, font=body_font, fill=color)
         ty += line_h
     return bubble_h
 
@@ -118,14 +134,18 @@ def letter_panel(panel_id: str) -> dict:
         text = str(d.get("text", "")).strip()
         if not text:
             continue
+        dtype = str(d.get("type", "speech")).strip().lower()
         speaker = str(d.get("speaker", "")).strip()
-        # measure to position (left for even, right for odd — a bit of rhythm)
+        # measure to position: narration hugs the left; speech/thought alternate
         lines = _wrap(draw, text, body, max_bubble_w)
         tw = max((draw.textlength(ln, font=body) for ln in lines), default=0)
         pad = max(8, int(body.size * 0.5))
         bw = int(min(tw, max_bubble_w) + pad * 2)
-        x = margin if i % 2 == 0 else max(margin, W - margin - bw)
-        h = _draw_bubble(draw, x, y, speaker, text, body, name, max_bubble_w)
+        if dtype == "narration" or i % 2 == 0:
+            x = margin
+        else:
+            x = max(margin, W - margin - bw)
+        h = _draw_bubble(draw, x, y, dtype, speaker, text, body, name, max_bubble_w)
         y += h + int(margin * 0.6)
 
     buf = BytesIO()

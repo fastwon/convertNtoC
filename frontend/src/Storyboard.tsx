@@ -44,7 +44,7 @@ function PanelCard({ panel, index, onChanged }: { panel: Panel; index: number; o
     setDialogue((ds) => ds.map((d, j) => (j === i ? { ...d, ...patch } : d)))
   }
   function addLine() {
-    setDialogue((ds) => [...ds, { speaker: '', text: '' }])
+    setDialogue((ds) => [...ds, { type: 'speech', speaker: '', text: '' }])
   }
   function removeLine(i: number) {
     setDialogue((ds) => ds.filter((_, j) => j !== i))
@@ -196,16 +196,26 @@ function PanelCard({ panel, index, onChanged }: { panel: Panel; index: number; o
           <div style={{ fontSize: 12, color: '#888', marginTop: 8 }}>대사 (말풍선으로 합성됨)</div>
           {dialogue.map((d, i) => (
             <div key={i} style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+              <select
+                style={{ ...input, width: 70, padding: 6 }}
+                value={d.type ?? 'speech'}
+                onChange={(e) => patchLine(i, { type: e.target.value as PanelDialogue['type'] })}
+              >
+                <option value="speech">대사</option>
+                <option value="thought">생각</option>
+                <option value="narration">지문</option>
+              </select>
               <input
-                style={{ ...input, width: 90 }}
+                style={{ ...input, width: 80 }}
                 value={d.speaker}
                 placeholder="화자"
+                disabled={d.type === 'narration'}
                 onChange={(e) => patchLine(i, { speaker: e.target.value })}
               />
               <input
                 style={{ ...input, flex: 1 }}
                 value={d.text}
-                placeholder="대사"
+                placeholder="내용"
                 onChange={(e) => patchLine(i, { text: e.target.value })}
               />
               <button style={{ ...btnDanger, fontSize: 12 }} onClick={() => removeLine(i)}>

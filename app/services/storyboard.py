@@ -45,10 +45,11 @@ STORYBOARD_SCHEMA: dict = {
                         "items": {
                             "type": "object",
                             "properties": {
+                                "type": {"type": "string", "enum": ["speech", "thought", "narration"]},
                                 "speaker": {"type": "string"},
                                 "text": {"type": "string"},
                             },
-                            "required": ["speaker", "text"],
+                            "required": ["type", "speaker", "text"],
                             "additionalProperties": False,
                         },
                     },
@@ -74,7 +75,11 @@ INSTRUCTION = """위 본문을 만화 컷으로 나눠라.
 - 각 컷(panel)마다:
   - scene: 그 컷의 시각적 묘사(인물의 위치·표정·행동·배경·구도). 그림을 위한 묘사.
   - characters: 그 컷에 등장하는 인물. 각 인물의 name과, 위 캐릭터 뱅크의 어느 모습인지 appearance_label(예: "기본", "10년 전"). 회상 장면이면 과거 모습 라벨을 쓴다. 등장 인물이 없으면 빈 배열.
-  - dialogue: 그 컷의 대사. speaker(말하는 인물)와 text. 대사가 없으면 빈 배열.
+  - dialogue: 그 컷의 텍스트. 각 항목은 type, speaker, text.
+    - type: "speech"(직접 소리 내어 하는 말) / "thought"(속으로 하는 생각) / "narration"(지문·상황 설명, 인물의 말이 아님)
+    - speaker: 말하거나 생각하는 인물 이름. narration은 빈 문자열.
+    - text: 내용.
+    텍스트가 없으면 빈 배열.
 - 컷 순서는 본문 진행 순서를 따른다.
 - 분량에 맞게 적당한 수의 컷으로 나눈다(너무 잘게 쪼개지 말 것)."""
 
@@ -108,8 +113,15 @@ def _validate(data: Any, valid_names: set[str], label_by_name: dict[str, set[str
         dlg = []
         for d in item.get("dialogue", []) or []:
             if isinstance(d, dict) and d.get("text"):
+                dtype = str(d.get("type", "speech")).strip().lower()
+                if dtype not in ("speech", "thought", "narration"):
+                    dtype = "speech"
                 dlg.append(
-                    {"speaker": str(d.get("speaker", "")).strip(), "text": str(d["text"]).strip()}
+                    {
+                        "type": dtype,
+                        "speaker": str(d.get("speaker", "")).strip(),
+                        "text": str(d["text"]).strip(),
+                    }
                 )
         panels.append({"scene": scene, "characters": chars, "dialogue": dlg})
     return panels
