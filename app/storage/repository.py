@@ -70,7 +70,8 @@ def _panel(r: Any) -> Panel:
     return Panel(
         id=r["id"], episode_id=r["episode_id"], order=r["ord"], scene=r["scene"],
         characters=_loads(r["characters"]), prompt=r["prompt"], image_path=r["image_path"],
-        dialogue=_loads(r["dialogue"]), created_at=r["created_at"],
+        lettered_path=r["lettered_path"], dialogue=_loads(r["dialogue"]),
+        created_at=r["created_at"],
     )
 
 
@@ -412,7 +413,7 @@ def replace_episode_panels(episode_id: str, panels: list[dict]) -> list[Panel]:
 
 
 def update_panel(panel_id: str, **fields: Any) -> Panel | None:
-    allowed = {"scene", "characters", "dialogue", "prompt", "image_path"}
+    allowed = {"scene", "characters", "dialogue", "prompt", "image_path", "lettered_path"}
     json_fields = {"characters", "dialogue"}
     sets, vals = [], []
     for key, val in fields.items():

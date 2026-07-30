@@ -59,6 +59,7 @@ class Panel:
     characters: Any | None  # [{"name","appearance_label"}]
     prompt: str
     image_path: str | None
+    lettered_path: str | None
     dialogue: Any | None  # [{"speaker","text"}]
     created_at: str
 

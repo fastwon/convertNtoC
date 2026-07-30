@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS panel (
   characters TEXT,                      -- JSON: [{"name","appearance_label"}]
   prompt     TEXT NOT NULL DEFAULT '',  -- assembled image prompt (P6b)
   image_path TEXT,                      -- generated image, relative to app_data_dir (P6b)
+  lettered_path TEXT,                   -- image with dialogue bubbles composited (P7)
   dialogue   TEXT,                      -- JSON: [{"speaker","text"}]
   created_at TEXT NOT NULL
 );
@@ -169,13 +170,15 @@ def _backfill_default_appearances() -> None:
 
 
 def _migrate_panel_columns() -> None:
-    """Add scene/characters columns to a panel table created before P6."""
+    """Add columns to a panel table created before P6/P7."""
     with connect() as conn:
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(panel)")}
         if "scene" not in cols:
             conn.execute("ALTER TABLE panel ADD COLUMN scene TEXT NOT NULL DEFAULT ''")
         if "characters" not in cols:
             conn.execute("ALTER TABLE panel ADD COLUMN characters TEXT")
+        if "lettered_path" not in cols:
+            conn.execute("ALTER TABLE panel ADD COLUMN lettered_path TEXT")
 
 
 def init_db() -> None:

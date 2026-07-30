@@ -320,6 +320,7 @@ export type Panel = {
   characters: PanelCharacter[] | null
   prompt: string
   image_path: string | null
+  lettered_path: string | null
   dialogue: PanelDialogue[] | null
   created_at: string
 }
@@ -347,6 +348,14 @@ export async function updatePanel(
 export async function deletePanel(panelId: string): Promise<void> {
   const r = await fetch(`/api/panels/${panelId}`, { method: 'DELETE' })
   if (!r.ok) throw new Error('컷 삭제 실패')
+}
+export async function letterPanel(
+  panelId: string,
+): Promise<{ lettered_path: string; bubbles: number }> {
+  return jsonOrThrow(await fetch(`/api/panels/${panelId}/letter`, { method: 'POST' }))
+}
+export function letteredImageUrl(panelId: string, version: number | string = ''): string {
+  return `/api/panels/${panelId}/lettered-image?v=${encodeURIComponent(String(version))}`
 }
 export async function generatePanelImage(
   panelId: string,

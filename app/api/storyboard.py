@@ -12,6 +12,7 @@ from ..image.base import ImageError
 from ..llm.base import LLMError
 from ..services import images as image_svc
 from ..services import storyboard as svc
+from ..services.lettering import LetteringError, letter_panel
 from ..storage import files
 from ..storage import repository as repo
 
@@ -69,6 +70,25 @@ def get_image(panel_id: str) -> FileResponse:
     if panel is None or not panel.image_path:
         raise HTTPException(status_code=404, detail="컷 이미지가 없습니다")
     path = files.resolve(panel.image_path)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="이미지 파일을 찾을 수 없습니다")
+    return FileResponse(path)
+
+
+@router.post("/api/panels/{panel_id}/letter")
+def letter(panel_id: str) -> dict:
+    try:
+        return letter_panel(panel_id)
+    except LetteringError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.get("/api/panels/{panel_id}/lettered-image")
+def get_lettered_image(panel_id: str) -> FileResponse:
+    panel = repo.get_panel(panel_id)
+    if panel is None or not panel.lettered_path:
+        raise HTTPException(status_code=404, detail="대사 합성 이미지가 없습니다")
+    path = files.resolve(panel.lettered_path)
     if not path.exists():
         raise HTTPException(status_code=404, detail="이미지 파일을 찾을 수 없습니다")
     return FileResponse(path)

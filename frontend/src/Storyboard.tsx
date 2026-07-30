@@ -3,10 +3,13 @@ import {
   deletePanel,
   generatePanelImage,
   generateStoryboard,
+  letterPanel,
+  letteredImageUrl,
   listPanels,
   panelImageUrl,
   updatePanel,
   type Panel,
+  type PanelDialogue,
 } from './api'
 import { btn, btnDanger, btnPrimary, input } from './ui'
 
@@ -18,6 +21,11 @@ function PanelCard({ panel, index, onChanged }: { panel: Panel; index: number; o
   const [hasImg, setHasImg] = useState(!!panel.image_path)
   const [genning, setGenning] = useState(false)
   const [imgError, setImgError] = useState('')
+  const [dialogue, setDialogue] = useState<PanelDialogue[]>(panel.dialogue ?? [])
+  const [lettering, setLettering] = useState(false)
+  const [hasLettered, setHasLettered] = useState(!!panel.lettered_path)
+  const [showLettered, setShowLettered] = useState(!!panel.lettered_path)
+  const [letterV, setLetterV] = useState(0)
 
   async function genImage() {
     setGenning(true)
@@ -30,6 +38,38 @@ function PanelCard({ panel, index, onChanged }: { panel: Panel; index: number; o
       setImgError(String(e instanceof Error ? e.message : e))
     } finally {
       setGenning(false)
+    }
+  }
+  function patchLine(i: number, patch: Partial<PanelDialogue>) {
+    setDialogue((ds) => ds.map((d, j) => (j === i ? { ...d, ...patch } : d)))
+  }
+  function addLine() {
+    setDialogue((ds) => [...ds, { speaker: '', text: '' }])
+  }
+  function removeLine(i: number) {
+    setDialogue((ds) => ds.filter((_, j) => j !== i))
+  }
+  async function saveDialogue() {
+    setBusy(true)
+    try {
+      await updatePanel(panel.id, { dialogue })
+    } finally {
+      setBusy(false)
+    }
+  }
+  async function doLetter() {
+    setLettering(true)
+    setImgError('')
+    try {
+      await updatePanel(panel.id, { dialogue }) // persist edits first
+      await letterPanel(panel.id)
+      setHasLettered(true)
+      setShowLettered(true)
+      setLetterV((v) => v + 1)
+    } catch (e: unknown) {
+      setImgError(String(e instanceof Error ? e.message : e))
+    } finally {
+      setLettering(false)
     }
   }
 
@@ -106,7 +146,11 @@ function PanelCard({ panel, index, onChanged }: { panel: Panel; index: number; o
           >
             {hasImg ? (
               <img
-                src={panelImageUrl(panel.id, imgV)}
+                src={
+                  showLettered && hasLettered
+                    ? letteredImageUrl(panel.id, letterV)
+                    : panelImageUrl(panel.id, imgV)
+                }
                 alt={`컷 ${index + 1}`}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
@@ -121,29 +165,64 @@ function PanelCard({ panel, index, onChanged }: { panel: Panel; index: number; o
           >
             {genning ? '생성 중…' : hasImg ? '이미지 재생성' : '이미지 생성'}
           </button>
+          <button
+            style={{ ...btn, marginTop: 4, fontSize: 12, width: '100%' }}
+            onClick={doLetter}
+            disabled={lettering || !hasImg}
+            title="대사를 이미지에 말풍선으로 합성합니다"
+          >
+            {lettering ? '합성 중…' : '대사 합성'}
+          </button>
+          {hasLettered && (
+            <button
+              style={{ ...btn, marginTop: 4, fontSize: 11, width: '100%' }}
+              onClick={() => setShowLettered((v) => !v)}
+            >
+              {showLettered ? '원본 보기' : '대사본 보기'}
+            </button>
+          )}
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 12, color: '#888' }}>장면 묘사 (이미지 생성 기준)</div>
           <textarea
-            style={{ ...input, minHeight: 90, marginTop: 2, resize: 'vertical' }}
+            style={{ ...input, minHeight: 70, marginTop: 2, resize: 'vertical' }}
             value={scene}
             onChange={(e) => setScene(e.target.value)}
             disabled={busy}
           />
           {imgError && <p style={{ color: 'crimson', fontSize: 12, margin: '4px 0 0' }}>{imgError}</p>}
-        </div>
-      </div>
 
-      {panel.dialogue && panel.dialogue.length > 0 && (
-        <div style={{ marginTop: 6 }}>
-          {panel.dialogue.map((d, i) => (
-            <div key={i} style={{ fontSize: 13, color: '#333' }}>
-              <b>{d.speaker || '나레이션'}:</b> {d.text}
+          <div style={{ fontSize: 12, color: '#888', marginTop: 8 }}>대사 (말풍선으로 합성됨)</div>
+          {dialogue.map((d, i) => (
+            <div key={i} style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+              <input
+                style={{ ...input, width: 90 }}
+                value={d.speaker}
+                placeholder="화자"
+                onChange={(e) => patchLine(i, { speaker: e.target.value })}
+              />
+              <input
+                style={{ ...input, flex: 1 }}
+                value={d.text}
+                placeholder="대사"
+                onChange={(e) => patchLine(i, { text: e.target.value })}
+              />
+              <button style={{ ...btnDanger, fontSize: 12 }} onClick={() => removeLine(i)}>
+                ✕
+              </button>
             </div>
           ))}
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <button style={{ ...btn, fontSize: 12 }} onClick={addLine}>
+              + 대사
+            </button>
+            <button style={{ ...btn, fontSize: 12 }} onClick={saveDialogue} disabled={busy}>
+              대사 저장
+            </button>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }
