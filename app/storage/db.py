@@ -47,12 +47,11 @@ def connect() -> Iterator[sqlite3.Connection]:
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS project (
-  id              TEXT PRIMARY KEY,
-  name            TEXT NOT NULL,
-  style_prompt    TEXT NOT NULL DEFAULT '',
-  image_model_ref TEXT,
-  font_settings   TEXT,                 -- JSON
-  created_at      TEXT NOT NULL
+  id            TEXT PRIMARY KEY,
+  name          TEXT NOT NULL,
+  style_prompt  TEXT NOT NULL DEFAULT '',
+  font_settings TEXT,                 -- JSON
+  created_at    TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS character (
@@ -181,8 +180,17 @@ def _migrate_panel_columns() -> None:
             conn.execute("ALTER TABLE panel ADD COLUMN lettered_path TEXT")
 
 
+def _drop_legacy_columns() -> None:
+    """Remove columns from earlier phases that are no longer used."""
+    with connect() as conn:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(project)")}
+        if "image_model_ref" in cols:
+            conn.execute("ALTER TABLE project DROP COLUMN image_model_ref")
+
+
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
     _migrate_panel_columns()
+    _drop_legacy_columns()
     _backfill_default_appearances()

@@ -10,7 +10,6 @@ export default function ProjectDetail({ id, onBack }: { id: string; onBack: () =
   const [error, setError] = useState('')
   const [name, setName] = useState('')
   const [style, setStyle] = useState('')
-  const [modelRef, setModelRef] = useState('')
   const [font, setFont] = useState('')
   const [bubble, setBubble] = useState('')
   const [busy, setBusy] = useState(false)
@@ -24,7 +23,6 @@ export default function ProjectDetail({ id, onBack }: { id: string; onBack: () =
         setProject(p)
         setName(p.name)
         setStyle(p.style_prompt)
-        setModelRef(p.image_model_ref ?? '')
         const fs = (p.font_settings ?? {}) as Record<string, string>
         setFont(fs.font_family ?? '')
         setBubble(fs.bubble_style ?? '')
@@ -43,7 +41,6 @@ export default function ProjectDetail({ id, onBack }: { id: string; onBack: () =
       await updateProject(id, {
         name: name.trim(),
         style_prompt: style.trim(),
-        image_model_ref: modelRef.trim() || null,
         font_settings: { font_family: font.trim(), bubble_style: bubble.trim() },
       })
       setSaved(true)
@@ -82,13 +79,6 @@ export default function ProjectDetail({ id, onBack }: { id: string; onBack: () =
               value={style}
               placeholder="예: 로맨스 판타지풍, 부드러운 채색, 큰 눈"
               onChange={(e) => setStyle(e.target.value)}
-            />
-            <label style={label}>이미지 모델 / LoRA 식별자 (선택 — 이미지 공급자 확정 후 사용)</label>
-            <input
-              style={input}
-              value={modelRef}
-              placeholder="예: some-lora-id (미정)"
-              onChange={(e) => setModelRef(e.target.value)}
             />
           </div>
 

@@ -10,7 +10,6 @@ class Project:
     id: str
     name: str
     style_prompt: str
-    image_model_ref: str | None
     font_settings: dict[str, Any] | None
     created_at: str
 

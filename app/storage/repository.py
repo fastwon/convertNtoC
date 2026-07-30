@@ -36,8 +36,7 @@ def _loads(text: str | None) -> Any | None:
 def _project(r: Any) -> Project:
     return Project(
         id=r["id"], name=r["name"], style_prompt=r["style_prompt"],
-        image_model_ref=r["image_model_ref"], font_settings=_loads(r["font_settings"]),
-        created_at=r["created_at"],
+        font_settings=_loads(r["font_settings"]), created_at=r["created_at"],
     )
 
 
@@ -80,15 +79,14 @@ def _panel(r: Any) -> Panel:
 def create_project(
     name: str,
     style_prompt: str = "",
-    image_model_ref: str | None = None,
     font_settings: dict[str, Any] | None = None,
 ) -> Project:
     pid, now = _new_id(), _now()
     with db.connect() as conn:
         conn.execute(
-            "INSERT INTO project(id, name, style_prompt, image_model_ref, font_settings, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
-            (pid, name, style_prompt, image_model_ref, _dumps(font_settings), now),
+            "INSERT INTO project(id, name, style_prompt, font_settings, created_at)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (pid, name, style_prompt, _dumps(font_settings), now),
         )
         conn.execute(
             "INSERT INTO global_memory(project_id, world_bible, updated_at) VALUES (?, '', ?)",
@@ -110,7 +108,7 @@ def list_projects() -> list[Project]:
 
 
 def update_project(project_id: str, **fields: Any) -> Project | None:
-    allowed = {"name", "style_prompt", "image_model_ref", "font_settings"}
+    allowed = {"name", "style_prompt", "font_settings"}
     sets, vals = [], []
     for key, val in fields.items():
         if key not in allowed:

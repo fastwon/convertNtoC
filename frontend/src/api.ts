@@ -66,14 +66,12 @@ export type Project = {
   id: string
   name: string
   style_prompt: string
-  image_model_ref: string | null
   font_settings: Record<string, unknown> | null
   created_at: string
 }
 export type ProjectCreate = {
   name: string
   style_prompt?: string
-  image_model_ref?: string | null
   font_settings?: Record<string, unknown> | null
 }
 export type ProjectPatch = Partial<ProjectCreate>
