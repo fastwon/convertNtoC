@@ -3,11 +3,13 @@ import {
   deletePanel,
   generatePanelImage,
   generateStoryboard,
+  getPanelPrompt,
   letterPanel,
   letteredImageUrl,
   listPanels,
   panelImageUrl,
   updatePanel,
+  uploadPanelImage,
   type Panel,
   type PanelDialogue,
 } from './api'
@@ -92,7 +94,9 @@ function PanelCard({ panel, index, onChanged }: { panel: Panel; index: number; o
   const [hasLettered, setHasLettered] = useState(!!panel.lettered_path)
   const [showLettered, setShowLettered] = useState(false)
   const [letterV, setLetterV] = useState(0)
+  const [promptText, setPromptText] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
+  const uploadRef = useRef<HTMLInputElement>(null)
 
   function patchLine(i: number, patch: Partial<PanelDialogue>) {
     setDialogue((ds) => ds.map((d, j) => (j === i ? { ...d, ...patch } : d)))
@@ -139,6 +143,40 @@ function PanelCard({ panel, index, onChanged }: { panel: Panel; index: number; o
       setMsg(String(e instanceof Error ? e.message : e))
     } finally {
       setGenning(false)
+    }
+  }
+  async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    if (!f) return
+    setGenning(true)
+    setMsg('')
+    try {
+      await uploadPanelImage(panel.id, f)
+      setHasImg(true)
+      setHasLettered(false)
+      setShowLettered(false)
+      setImgV((v) => v + 1)
+      setMsg('이미지 업로드됨')
+    } catch (err: unknown) {
+      setMsg(String(err instanceof Error ? err.message : err))
+    } finally {
+      setGenning(false)
+      if (uploadRef.current) uploadRef.current.value = ''
+    }
+  }
+  async function copyPrompt() {
+    setMsg('')
+    try {
+      const r = await getPanelPrompt(panel.id)
+      setPromptText(r.prompt)
+      try {
+        await navigator.clipboard.writeText(r.prompt)
+        setMsg('프롬프트 복사됨 (아래 상자에도 표시)')
+      } catch {
+        setMsg('아래 상자의 프롬프트를 복사해 쓰세요')
+      }
+    } catch (e: unknown) {
+      setMsg(String(e instanceof Error ? e.message : e))
     }
   }
   async function doLetter() {
@@ -211,7 +249,14 @@ function PanelCard({ panel, index, onChanged }: { panel: Panel; index: number; o
 
       <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 8, flexWrap: 'wrap' }}>
         <button style={btn} onClick={genImage} disabled={genning}>
-          {genning ? '생성 중…' : hasImg ? '이미지 재생성' : '이미지 생성'}
+          {genning ? '생성 중…' : hasImg ? '이미지 재생성' : '이미지 자동생성'}
+        </button>
+        <input ref={uploadRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onUpload} />
+        <button style={btn} onClick={() => uploadRef.current?.click()} disabled={genning}>
+          이미지 업로드
+        </button>
+        <button style={btn} onClick={copyPrompt}>
+          프롬프트 복사
         </button>
         <button style={btnPrimary} onClick={doLetter} disabled={lettering || !hasImg}>
           {lettering ? '합성 중…' : '대사 합성'}
@@ -223,6 +268,19 @@ function PanelCard({ panel, index, onChanged }: { panel: Panel; index: number; o
         )}
       </div>
       {msg && <p style={{ textAlign: 'center', color: msg.includes('실패') || msg.includes('오류') ? 'crimson' : '#2d7d2d', fontSize: 12 }}>{msg}</p>}
+      {promptText && (
+        <div style={{ marginTop: 6 }}>
+          <div style={{ fontSize: 11, color: '#888' }}>
+            이 프롬프트 + 캐릭터 참조 이미지를 Gemini 웹에 넣어 만든 뒤, "이미지 업로드"로 넣으세요
+          </div>
+          <textarea
+            readOnly
+            style={{ ...input, minHeight: 54, marginTop: 2, background: '#f7f7f7' }}
+            value={promptText}
+            onFocus={(e) => e.currentTarget.select()}
+          />
+        </div>
+      )}
 
       <div style={{ fontSize: 12, color: '#888', marginTop: 8 }}>장면 묘사 (이미지 생성 기준)</div>
       <textarea style={{ ...input, minHeight: 54, marginTop: 2, resize: 'vertical' }} value={scene} onChange={(e) => setScene(e.target.value)} />

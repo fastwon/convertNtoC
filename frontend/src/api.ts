@@ -367,6 +367,14 @@ export async function generatePanelImage(
 ): Promise<{ generator: string; prompt: string; image_path: string }> {
   return jsonOrThrow(await fetch(`/api/panels/${panelId}/image`, { method: 'POST' }))
 }
+export async function uploadPanelImage(panelId: string, file: File): Promise<{ image_path: string }> {
+  const fd = new FormData()
+  fd.append('file', file)
+  return jsonOrThrow(await fetch(`/api/panels/${panelId}/upload-image`, { method: 'POST', body: fd }))
+}
+export async function getPanelPrompt(panelId: string): Promise<{ prompt: string }> {
+  return jsonOrThrow(await fetch(`/api/panels/${panelId}/prompt`))
+}
 export function panelImageUrl(panelId: string, version: number | string = ''): string {
   return `/api/panels/${panelId}/image?v=${encodeURIComponent(String(version))}`
 }
