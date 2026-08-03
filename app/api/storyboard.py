@@ -86,7 +86,12 @@ async def upload_image(panel_id: str, file: UploadFile = File(...)) -> dict:
     data = await file.read()
     if not data:
         raise HTTPException(status_code=400, detail="빈 파일입니다")
-    # save with a version suffix so the browser cache-busts on re-upload
+    # keep the previous cut image + lettered version by moving them to panels/old/
+    # (don't delete — the user may want the earlier take back)
+    if panel.image_path:
+        files.archive_file(panel.image_path)
+    if panel.lettered_path:
+        files.archive_file(panel.lettered_path)
     rel = files.save_bytes(ep.project_id, "panels", f"{panel_id}_up{ext}", data)
     repo.update_panel(panel_id, image_path=rel, lettered_path=None)  # new base image
     return {"image_path": rel}
