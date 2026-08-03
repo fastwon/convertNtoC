@@ -11,6 +11,7 @@ import {
   type ExtractedCharacter,
   type Usage,
 } from './api'
+import ComicViewer from './ComicViewer'
 import Storyboard from './Storyboard'
 import { btn, btnDanger, btnPrimary, card, input, label } from './ui'
 
@@ -34,6 +35,7 @@ function EpisodeRow({
   onCharactersSaved: () => void
 }) {
   const [open, setOpen] = useState(false)
+  const [viewerOpen, setViewerOpen] = useState(false)
   const [text, setText] = useState(ep.raw_text)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -152,6 +154,9 @@ function EpisodeRow({
           </span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          <button style={btnPrimary} onClick={() => setViewerOpen((v) => !v)}>
+            {viewerOpen ? '뷰어 닫기' : '만화 보기'}
+          </button>
           <button style={btn} onClick={() => setOpen((v) => !v)}>
             {open ? '접기' : '본문'}
           </button>
@@ -160,6 +165,7 @@ function EpisodeRow({
           </button>
         </div>
       </div>
+      {viewerOpen && <ComicViewer episodeId={ep.id} />}
       {open && (
         <div style={{ marginTop: 10 }}>
           <textarea
