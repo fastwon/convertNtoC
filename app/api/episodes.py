@@ -4,10 +4,13 @@ is the input to character extraction / storyboard generation in later P4 steps.
 from __future__ import annotations
 
 from dataclasses import asdict
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 
+from ..services.export import ExportError, export_episode
 from ..storage import repository as repo
 
 router = APIRouter(tags=["episodes"])
@@ -67,3 +70,23 @@ def delete_episode(episode_id: str) -> dict:
         raise HTTPException(status_code=404, detail="회차를 찾을 수 없습니다")
     repo.delete_episode(episode_id)
     return {"ok": True}
+
+
+@router.get("/api/episodes/{episode_id}/export")
+def export(episode_id: str, format: str = "png") -> Response:
+    """Download the episode's finished cuts as png (webtoon strip) / pdf / zip."""
+    e = repo.get_episode(episode_id)
+    if e is None:
+        raise HTTPException(status_code=404, detail="회차를 찾을 수 없습니다")
+    try:
+        data, media_type, ext = export_episode(episode_id, format)
+    except ExportError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+    # ASCII fallback + RFC 5987 UTF-8 name so Korean filenames survive
+    name = f"{e.number}화"
+    disposition = (
+        f"attachment; filename=\"episode-{e.number}.{ext}\"; "
+        f"filename*=UTF-8''{quote(name)}.{ext}"
+    )
+    return Response(content=data, media_type=media_type,
+                    headers={"Content-Disposition": disposition})

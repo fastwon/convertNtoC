@@ -81,14 +81,14 @@
 앱 데이터 루트: `%APPDATA%\convertN2C\` (Python `platformdirs`로 경로 결정). S3는 사용하지 않음.
 
 - **관계형 DB**: SQLite 단일 파일 — Project / Episode / Panel / Character 메타.
-- **벡터 저장소**: 로컬 임베디드. 후보 — `sqlite-vec`(SQLite 한 파일에 통합, 가장 단순·권장) / Chroma(embedded persistent) / FAISS. *미결.*
-- **파일 저장소**: `…\convertN2C\projects\<project_id>\` 하위에 참조 이미지·생성 컷 보관.
+- ~~**벡터 저장소**~~: sqlite-vec로 구현했으나 **제거**. 캐릭터 판별은 LLM 텍스트 매칭, 시각 일관성은 외형 묘사 텍스트 주입 — 임베딩이 필요 없고, 벡터는 "같은 얼굴로 그리기"(생성)를 못 풀기 때문.
+- **파일 저장소**: `…\convertN2C\projects\<project_id>\` 하위에 참조 이미지·생성 컷 보관(재업로드 시 이전 파일은 `panels\old\`로 백업).
 - **키 저장소**: `keyring`(Windows Credential Manager) — 평문 설정 파일·exe 번들 금지.
 
 ### 데이터 모델 (초안)
 
 - **Project**: `id`, `name`, `style_prompt`, `image_model_ref`(외부 API 모델/LoRA 식별자), `font/말풍선 설정`, `created_at`
-- **Character** (프로젝트 귀속): `id`, `project_id`, `name`, `traits`(JSON), `ref_image_path`(로컬), `face_embedding`(벡터 저장소)
+- **Character** (프로젝트 귀속): `id`, `project_id`, `name`, `traits`(JSON), `ref_image_path`(로컬) + 시간대별 **외형(character_appearance)** 테이블(기본/과거회상/부상후 등). *얼굴 임베딩·벡터 저장소는 미사용으로 제거 — 일관성은 텍스트(외형 묘사) 기반.*
 - **Episode**: `id`, `project_id`, `number`, `raw_text`, `summary`, `status`
 - **Panel** (컷): `id`, `episode_id`, `order`, `prompt`, `image_path`(로컬), `dialogue`(JSON)
 - **GlobalMemory**: 프로젝트별 — 캐릭터 뱅크 + 세계관 서술 + 누적 회차 요약 (프롬프트 캐시 대상)
@@ -204,5 +204,5 @@ class ImageGenerator(Protocol):
 
 ## 10. 결정된 사항 / 미결 사항
 
-결정: 데스크톱 EXE / PyWebView+PyInstaller / Python(FastAPI 로컬)+React(Vite) / LLM=**Claude 기본 + Gemini 무료 토글**(제공자 추상화) / 이미지=외부 API(일관성 기능 제공) / 타인 배포·사용자 자기 키.
-미결: 벡터 저장소 제품(sqlite-vec 권장) · 외부 이미지 API 공급자 · 무료 이미지 옵션 여부 · 자동 업데이트 방식.
+결정: 데스크톱 EXE / PyWebView+PyInstaller / Python(FastAPI 로컬)+React(Vite) / LLM=**Claude 기본 + Gemini 무료 토글**(제공자 추상화) / 이미지=**Pollinations(무료) + Gemini 이미지(유료) + 컷 직접 업로드** / **벡터 저장소 제거**(일관성 텍스트 기반) / 타인 배포·사용자 자기 키.
+미결: 외부 이미지 API 공급자(Replicate/fal, 미구현) · 폰트·말풍선 설정 실제 반영 · 자동 업데이트 방식.

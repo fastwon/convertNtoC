@@ -379,6 +379,36 @@ export function panelImageUrl(panelId: string, version: number | string = ''): s
   return `/api/panels/${panelId}/image?v=${encodeURIComponent(String(version))}`
 }
 
+export type ExportFormat = 'png' | 'pdf' | 'zip'
+
+/** Fetch the episode export and trigger a browser download. */
+export async function exportEpisode(episodeId: string, format: ExportFormat): Promise<void> {
+  const r = await fetch(`/api/episodes/${episodeId}/export?format=${format}`)
+  if (!r.ok) {
+    let msg = `내보내기 실패 (${r.status})`
+    try {
+      const d = (await r.json()) as { detail?: string }
+      if (d?.detail) msg = d.detail
+    } catch {
+      /* non-JSON error body */
+    }
+    throw new Error(msg)
+  }
+  const blob = await r.blob()
+  // derive filename from Content-Disposition, else a sane default
+  const cd = r.headers.get('Content-Disposition') || ''
+  const m = /filename="([^"]+)"/.exec(cd)
+  const name = m ? m[1] : `episode.${format}`
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 export function refImageUrl(appearanceId: string, version: number | string = ''): string {
   // pass a changing `version` (e.g. Date.now()) after re-upload to bust the cache
   return `/api/appearances/${appearanceId}/ref-image?v=${encodeURIComponent(String(version))}`
