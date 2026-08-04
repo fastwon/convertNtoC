@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from . import db, files, vectors
+from . import db, files
 from .models import Appearance, Character, Episode, GlobalMemory, Panel, Project
 
 
@@ -124,14 +124,7 @@ def update_project(project_id: str, **fields: Any) -> Project | None:
 
 def delete_project(project_id: str) -> None:
     with db.connect() as conn:
-        char_ids = [
-            r["id"] for r in conn.execute(
-                "SELECT id FROM character WHERE project_id = ?", (project_id,)
-            ).fetchall()
-        ]
         conn.execute("DELETE FROM project WHERE id = ?", (project_id,))  # cascades rows
-    for cid in char_ids:
-        vectors.delete(cid)
     files.delete_project_files(project_id)
 
 
@@ -298,7 +291,6 @@ def delete_character(character_id: str) -> None:
     appearances = list_appearances(character_id)
     with db.connect() as conn:
         conn.execute("DELETE FROM character WHERE id = ?", (character_id,))  # cascades appearances
-    vectors.delete(character_id)
     # remove image files for every look (FK cascade drops rows, not files)
     paths = [a.ref_image_path for a in appearances]
     if char:

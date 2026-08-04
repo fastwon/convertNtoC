@@ -2,8 +2,8 @@
 
 Extraction returns candidates for user confirmation. Confirm persists the
 selected new characters into the project's bank. Reference images are stored
-as local files; face embeddings are added later (P6, once the image provider
-is chosen).
+as local files and turned into vision-anchored appearance text; character
+consistency is text-driven, so there is no face-embedding/vector store.
 """
 from __future__ import annotations
 

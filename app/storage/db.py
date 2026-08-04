@@ -1,8 +1,7 @@
-"""SQLite connection + schema. Loads the sqlite-vec extension on every connection.
+"""SQLite connection + schema.
 
-The relational tables are created up front; the vec0 virtual table is created
-lazily on first embedding insert (see vectors.py) because the embedding
-dimension isn't known until an embedding model is chosen (P4).
+Character consistency is driven by text (LLM name matching + vision-anchored
+appearance descriptions), not vector search, so there is no embedding store.
 """
 from __future__ import annotations
 
@@ -10,8 +9,6 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-
-import sqlite_vec
 
 from ..paths import app_data_dir
 
@@ -24,7 +21,7 @@ def db_path() -> Path:
 
 @contextmanager
 def connect() -> Iterator[sqlite3.Connection]:
-    """Open a connection with FK enforcement + sqlite-vec loaded.
+    """Open a connection with FK enforcement.
 
     Commits on success, rolls back on exception, always closes. One connection
     per operation keeps things thread-safe under uvicorn's sync threadpool.
@@ -32,9 +29,6 @@ def connect() -> Iterator[sqlite3.Connection]:
     conn = sqlite3.connect(db_path())
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
-    conn.enable_load_extension(True)
-    sqlite_vec.load(conn)
-    conn.enable_load_extension(False)
     try:
         yield conn
         conn.commit()
@@ -112,13 +106,6 @@ CREATE TABLE IF NOT EXISTS global_memory (
   updated_at  TEXT NOT NULL
 );
 
--- single-row table remembering the embedding dimension the vec0 table was built with
-CREATE TABLE IF NOT EXISTS vec_meta (
-  id  INTEGER PRIMARY KEY CHECK (id = 1),
-  dim INTEGER
-);
-INSERT OR IGNORE INTO vec_meta(id, dim) VALUES (1, NULL);
-
 -- app-wide non-secret settings (e.g. free_mode toggle). Secrets live in keyring.
 CREATE TABLE IF NOT EXISTS app_config (
   key   TEXT PRIMARY KEY,
@@ -188,9 +175,25 @@ def _drop_legacy_columns() -> None:
             conn.execute("ALTER TABLE project DROP COLUMN image_model_ref")
 
 
+def _drop_legacy_vector_store() -> None:
+    """Remove the unused sqlite-vec tables from DBs created before it was cut.
+
+    Embeddings were never populated (consistency is text-driven), so these are
+    always empty. character_vec was a vec0 virtual table needing the extension;
+    it was never created in practice, but drop it guardedly just in case.
+    """
+    with connect() as conn:
+        conn.execute("DROP TABLE IF EXISTS vec_meta")
+        try:
+            conn.execute("DROP TABLE IF EXISTS character_vec")
+        except sqlite3.OperationalError:
+            pass  # vec0 table present but extension unavailable — leave it
+
+
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
     _migrate_panel_columns()
     _drop_legacy_columns()
+    _drop_legacy_vector_store()
     _backfill_default_appearances()
