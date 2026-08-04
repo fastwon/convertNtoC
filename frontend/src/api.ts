@@ -380,33 +380,22 @@ export function panelImageUrl(panelId: string, version: number | string = ''): s
 }
 
 export type ExportFormat = 'png' | 'pdf' | 'zip'
+export type ExportResult = { path: string; folder: string; filename: string }
 
-/** Fetch the episode export and trigger a browser download. */
-export async function exportEpisode(episodeId: string, format: ExportFormat): Promise<void> {
-  const r = await fetch(`/api/episodes/${episodeId}/export?format=${format}`)
-  if (!r.ok) {
-    let msg = `내보내기 실패 (${r.status})`
-    try {
-      const d = (await r.json()) as { detail?: string }
-      if (d?.detail) msg = d.detail
-    } catch {
-      /* non-JSON error body */
-    }
-    throw new Error(msg)
-  }
-  const blob = await r.blob()
-  // derive filename from Content-Disposition, else a sane default
-  const cd = r.headers.get('Content-Disposition') || ''
-  const m = /filename="([^"]+)"/.exec(cd)
-  const name = m ? m[1] : `episode.${format}`
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = name
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
+/** Save the episode export to the user's exports folder (server-side write —
+ *  reliable inside the PyWebView desktop shell). Returns the saved location. */
+export async function exportEpisode(
+  episodeId: string,
+  format: ExportFormat,
+): Promise<ExportResult> {
+  return jsonOrThrow(
+    await fetch(`/api/episodes/${episodeId}/export?format=${format}`, { method: 'POST' }),
+  )
+}
+
+/** Open the exports folder in Windows Explorer. */
+export async function openExportsFolder(): Promise<{ folder: string }> {
+  return jsonOrThrow(await fetch('/api/exports/open', { method: 'POST' }))
 }
 
 export function refImageUrl(appearanceId: string, version: number | string = ''): string {

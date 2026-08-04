@@ -3,6 +3,7 @@ is the input to character extraction / storyboard generation in later P4 steps.
 """
 from __future__ import annotations
 
+import os
 from dataclasses import asdict
 from urllib.parse import quote
 
@@ -10,7 +11,8 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from ..services.export import ExportError, export_episode
+from ..paths import exports_dir
+from ..services.export import ExportError, export_episode, save_export
 from ..storage import repository as repo
 
 router = APIRouter(tags=["episodes"])
@@ -72,9 +74,26 @@ def delete_episode(episode_id: str) -> dict:
     return {"ok": True}
 
 
-@router.get("/api/episodes/{episode_id}/export")
-def export(episode_id: str, format: str = "png") -> Response:
-    """Download the episode's finished cuts as png (webtoon strip) / pdf / zip."""
+@router.post("/api/episodes/{episode_id}/export")
+def export(episode_id: str, format: str = "png") -> dict:
+    """Save the episode's finished cuts to the user's exports folder.
+
+    Writes server-side (reliable inside the PyWebView shell, where browser blob
+    downloads are dropped) and returns the saved path + folder.
+    """
+    e = repo.get_episode(episode_id)
+    if e is None:
+        raise HTTPException(status_code=404, detail="회차를 찾을 수 없습니다")
+    try:
+        path = save_export(episode_id, format, e.number)
+    except ExportError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+    return {"path": str(path), "folder": str(path.parent), "filename": path.name}
+
+
+@router.get("/api/episodes/{episode_id}/export-download")
+def export_download(episode_id: str, format: str = "png") -> Response:
+    """Same export as a streamed download (for the browser dev environment)."""
     e = repo.get_episode(episode_id)
     if e is None:
         raise HTTPException(status_code=404, detail="회차를 찾을 수 없습니다")
@@ -90,3 +109,14 @@ def export(episode_id: str, format: str = "png") -> Response:
     )
     return Response(content=data, media_type=media_type,
                     headers={"Content-Disposition": disposition})
+
+
+@router.post("/api/exports/open")
+def open_exports_folder() -> dict:
+    """Open the exports folder in the OS file manager (Windows Explorer)."""
+    folder = exports_dir()
+    try:
+        os.startfile(folder)  # type: ignore[attr-defined]  # Windows-only
+    except OSError as err:
+        raise HTTPException(status_code=500, detail=f"폴더를 열 수 없습니다: {err}") from err
+    return {"folder": str(folder)}

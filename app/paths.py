@@ -10,7 +10,7 @@ import os
 import sys
 from pathlib import Path
 
-from platformdirs import user_data_dir
+from platformdirs import user_data_dir, user_documents_dir
 
 APP_NAME = "convertN2C"
 
@@ -41,5 +41,21 @@ def app_data_dir() -> Path:
     """
     override = os.environ.get("CONVERTN2C_DATA_DIR")
     d = Path(override) if override else Path(user_data_dir(APP_NAME, appauthor=False))
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def exports_dir() -> Path:
+    """User-facing folder where finished comics are exported. A real folder the
+    user can find (Documents\\convertN2C 내보내기), unlike the hidden app-data dir.
+
+    Under CONVERTN2C_DATA_DIR (tests / portable mode) it lives inside that dir so
+    throwaway runs never write to the user's Documents.
+    """
+    override = os.environ.get("CONVERTN2C_DATA_DIR")
+    if override:
+        d = Path(override) / "exports"
+    else:
+        d = Path(user_documents_dir()) / f"{APP_NAME} 내보내기"
     d.mkdir(parents=True, exist_ok=True)
     return d

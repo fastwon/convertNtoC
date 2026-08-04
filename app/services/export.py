@@ -14,6 +14,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from ..paths import exports_dir
 from ..storage import files
 from ..storage import repository as repo
 
@@ -95,3 +96,15 @@ def export_episode(episode_id: str, fmt: str) -> tuple[bytes, str, str]:
         raise ExportError(f"지원하지 않는 형식입니다: {fmt}")
     fn, media_type, ext = entry
     return fn(episode_id), media_type, ext
+
+
+def save_export(episode_id: str, fmt: str, number: int) -> Path:
+    """Write the export into the user's exports folder and return its path.
+
+    This is the reliable path inside the PyWebView desktop shell, where browser
+    blob downloads are silently dropped. Re-exporting overwrites the same file.
+    """
+    data, _media, ext = export_episode(episode_id, fmt)
+    dest = exports_dir() / f"{number}화.{ext}"
+    dest.write_bytes(data)
+    return dest

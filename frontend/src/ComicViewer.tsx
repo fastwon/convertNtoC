@@ -3,6 +3,7 @@ import {
   exportEpisode,
   letteredImageUrl,
   listPanels,
+  openExportsFolder,
   panelImageUrl,
   type ExportFormat,
   type Panel,
@@ -14,6 +15,7 @@ export default function ComicViewer({ episodeId }: { episodeId: string }) {
   const [ver] = useState(() => Date.now()) // cache-bust once per open
   const [exporting, setExporting] = useState<ExportFormat | null>(null)
   const [exportErr, setExportErr] = useState('')
+  const [savedPath, setSavedPath] = useState('')
 
   useEffect(() => {
     listPanels(episodeId)
@@ -28,8 +30,10 @@ export default function ComicViewer({ episodeId }: { episodeId: string }) {
   async function doExport(format: ExportFormat) {
     setExporting(format)
     setExportErr('')
+    setSavedPath('')
     try {
-      await exportEpisode(episodeId, format)
+      const res = await exportEpisode(episodeId, format)
+      setSavedPath(res.path)
     } catch (e: unknown) {
       setExportErr(String(e instanceof Error ? e.message : e))
     } finally {
@@ -75,6 +79,41 @@ export default function ComicViewer({ episodeId }: { episodeId: string }) {
         {expBtn('zip', '컷 묶음(ZIP)')}
         {exportErr && <span style={{ color: '#f88', fontSize: 12 }}>{exportErr}</span>}
       </div>
+      {savedPath && (
+        <div
+          style={{
+            maxWidth: 480,
+            margin: '-4px auto 12px',
+            padding: '8px 10px',
+            display: 'flex',
+            gap: 10,
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            background: '#1c2a1c',
+            border: '1px solid #2f4a2f',
+            borderRadius: 6,
+          }}
+        >
+          <span style={{ color: '#bfe6bf', fontSize: 12, wordBreak: 'break-all', flex: 1 }}>
+            저장됨: {savedPath}
+          </span>
+          <button
+            onClick={() => openExportsFolder().catch(() => {})}
+            style={{
+              background: '#2f4a2f',
+              color: '#eaffea',
+              border: '1px solid #3f5f3f',
+              borderRadius: 5,
+              padding: '5px 12px',
+              cursor: 'pointer',
+              fontSize: 13,
+              flexShrink: 0,
+            }}
+          >
+            폴더 열기
+          </button>
+        </div>
+      )}
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 8px' }}>
         {!panels && <p style={{ color: '#999', textAlign: 'center' }}>불러오는 중…</p>}
         {panels && panels.length === 0 && (
