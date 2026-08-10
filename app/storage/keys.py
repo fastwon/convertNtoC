@@ -12,8 +12,7 @@ SERVICE = "convertN2C"
 
 ANTHROPIC = "anthropic_api_key"
 GEMINI = "gemini_api_key"
-IMAGE = "image_api_key"
-VALID_NAMES = {ANTHROPIC, GEMINI, IMAGE}
+VALID_NAMES = {ANTHROPIC, GEMINI}
 
 
 def set_key(name: str, value: str) -> None:

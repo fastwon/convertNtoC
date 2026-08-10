@@ -12,7 +12,6 @@ from ..services.validation import (
     mask_secret,
     validate_anthropic_key,
     validate_gemini_key,
-    validate_image_key,
 )
 from ..storage import config, keys
 
@@ -40,7 +39,6 @@ def _slot(name: str) -> dict:
 def status() -> dict:
     anthropic_slot = _slot(keys.ANTHROPIC)
     gemini_slot = _slot(keys.GEMINI)
-    image_slot = _slot(keys.IMAGE)
     free_mode = config.is_free_mode()
     # ready = the key required by the active mode is present
     ready = gemini_slot["present"] if free_mode else anthropic_slot["present"]
@@ -50,7 +48,6 @@ def status() -> dict:
         "active_provider": "gemini" if free_mode else "claude",
         "anthropic": anthropic_slot,
         "gemini": gemini_slot,
-        "image": image_slot,
         "image_provider": image_provider,
         "ready": ready,
     }
@@ -88,11 +85,6 @@ def set_gemini(body: KeyBody) -> dict:
     return _save(keys.GEMINI, body.key, validate_gemini_key)
 
 
-@router.post("/image")
-def set_image(body: KeyBody) -> dict:
-    return _save(keys.IMAGE, body.key, validate_image_key)
-
-
 @router.delete("/anthropic")
 def delete_anthropic() -> dict:
     keys.delete_key(keys.ANTHROPIC)
@@ -102,10 +94,4 @@ def delete_anthropic() -> dict:
 @router.delete("/gemini")
 def delete_gemini() -> dict:
     keys.delete_key(keys.GEMINI)
-    return {"ok": True}
-
-
-@router.delete("/image")
-def delete_image() -> dict:
-    keys.delete_key(keys.IMAGE)
     return {"ok": True}

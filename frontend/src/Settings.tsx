@@ -202,18 +202,10 @@ export default function Settings() {
           </label>
         </div>
         <p style={{ color: '#999', fontSize: 12, marginTop: 8, marginBottom: 0 }}>
-          외부 API(Replicate/fal)는 이후 단계에서 추가 예정.
+          Pollinations는 키가 필요 없고, Gemini 이미지는 위 Gemini 키를 그대로 사용합니다.
         </p>
       </div>
 
-      <KeyRow
-        label="이미지 API 키 (외부 API용 — 이후 단계)"
-        slot="image"
-        present={status.image.present}
-        masked={status.image.masked}
-        hint="외부 이미지 API용. 공급자 추가 전까지는 저장만 합니다."
-        onChanged={refresh}
-      />
       <p style={{ color: '#999', fontSize: 12 }}>
         키는 OS 자격증명 저장소에만 저장되며, 화면에는 마스킹되어 표시됩니다.
       </p>

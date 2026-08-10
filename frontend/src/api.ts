@@ -20,12 +20,11 @@ export type SettingsStatus = {
   active_provider: 'gemini' | 'claude'
   anthropic: KeySlot
   gemini: KeySlot
-  image: KeySlot
   image_provider: 'pollinations' | 'gemini'
   ready: boolean
 }
 export type SaveResult = { ok: boolean; message: string; masked: string | null }
-export type Slot = 'anthropic' | 'gemini' | 'image'
+export type Slot = 'anthropic' | 'gemini'
 
 export async function getStatus(): Promise<SettingsStatus> {
   return jsonOrThrow(await fetch('/api/settings/status'))

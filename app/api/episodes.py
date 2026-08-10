@@ -5,14 +5,12 @@ from __future__ import annotations
 
 import os
 from dataclasses import asdict
-from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import Response
 from pydantic import BaseModel
 
 from ..paths import exports_dir
-from ..services.export import ExportError, export_episode, save_export
+from ..services.export import ExportError, save_export
 from ..storage import repository as repo
 
 router = APIRouter(tags=["episodes"])
@@ -89,26 +87,6 @@ def export(episode_id: str, format: str = "png") -> dict:
     except ExportError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
     return {"path": str(path), "folder": str(path.parent), "filename": path.name}
-
-
-@router.get("/api/episodes/{episode_id}/export-download")
-def export_download(episode_id: str, format: str = "png") -> Response:
-    """Same export as a streamed download (for the browser dev environment)."""
-    e = repo.get_episode(episode_id)
-    if e is None:
-        raise HTTPException(status_code=404, detail="회차를 찾을 수 없습니다")
-    try:
-        data, media_type, ext = export_episode(episode_id, format)
-    except ExportError as err:
-        raise HTTPException(status_code=400, detail=str(err)) from err
-    # ASCII fallback + RFC 5987 UTF-8 name so Korean filenames survive
-    name = f"{e.number}화"
-    disposition = (
-        f"attachment; filename=\"episode-{e.number}.{ext}\"; "
-        f"filename*=UTF-8''{quote(name)}.{ext}"
-    )
-    return Response(content=data, media_type=media_type,
-                    headers={"Content-Disposition": disposition})
 
 
 @router.post("/api/exports/open")

@@ -43,13 +43,3 @@ def validate_gemini_key(key: str) -> tuple[bool, str]:
     from ..llm.gemini import GeminiProvider  # lazy: google-genai is heavy
 
     return GeminiProvider(key.strip()).validate()
-
-
-def validate_image_key(key: str) -> tuple[bool, str]:
-    """Image provider is undecided (P6); for now accept a non-empty key and store it.
-
-    Real validation (provider ping) lands once the provider is chosen.
-    """
-    if not key or not key.strip():
-        return False, "키가 비어 있습니다"
-    return True, "저장됨 (실제 검증은 이미지 공급자 확정 후 P6에서 추가)"
