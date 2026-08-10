@@ -171,9 +171,11 @@ def letter_panel(panel_id: str) -> dict:
         y = max(0, min(y, H - m["bh"]))
         _draw(draw, x, y, dtype, m, body, name, bubble_style)
 
+    # PNG (lossless) so text edges stay crisp — JPEG's block artifacts blur
+    # sharp glyph edges. Slightly larger file, but text quality matters here.
     buf = BytesIO()
-    img.save(buf, format="JPEG", quality=90)
-    rel = files.save_bytes(_project_id(panel), "panels", f"{panel_id}_lettered.jpg", buf.getvalue())
+    img.save(buf, format="PNG")
+    rel = files.save_bytes(_project_id(panel), "panels", f"{panel_id}_lettered.png", buf.getvalue())
     repo.update_panel(panel_id, lettered_path=rel)
     return {"lettered_path": rel, "bubbles": count}
 
