@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createProject, deleteProject, listProjects, type Project } from './api'
-import { btn, btnDanger, btnPrimary, card, input, label } from './ui'
+import { btnDanger, btnPrimary, c, card, errText, input, label, muted, pageTitle } from './ui'
 
 export default function Dashboard({ onOpen }: { onOpen: (id: string) => void }) {
   const [projects, setProjects] = useState<Project[] | null>(null)
@@ -48,7 +48,7 @@ export default function Dashboard({ onOpen }: { onOpen: (id: string) => void }) 
 
   return (
     <section>
-      <h2>대시보드</h2>
+      <h2 style={pageTitle}>대시보드</h2>
 
       <div style={card}>
         <strong>새 프로젝트</strong>
@@ -75,25 +75,30 @@ export default function Dashboard({ onOpen }: { onOpen: (id: string) => void }) 
         </div>
       </div>
 
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      {!projects && !error && <p>불러오는 중…</p>}
+      {error && <p style={errText}>{error}</p>}
+      {!projects && !error && <p style={muted}>불러오는 중…</p>}
       {projects && projects.length === 0 && (
-        <p style={{ color: '#888' }}>아직 프로젝트가 없습니다. 위에서 하나 만들어보세요.</p>
+        <p style={muted}>아직 프로젝트가 없습니다. 위에서 하나 만들어보세요.</p>
       )}
 
+      {projects && projects.length > 0 && (
+        <div style={{ ...muted, fontWeight: 600, margin: '20px 2px 10px' }}>
+          프로젝트 {projects.length}
+        </div>
+      )}
       {projects?.map((p) => (
-        <div key={p.id} style={{ ...card, display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-          <div style={{ minWidth: 0 }}>
+        <div key={p.id} style={{ ...card, display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+          <div style={{ minWidth: 0, cursor: 'pointer' }} onClick={() => onOpen(p.id)}>
             <div style={{ fontWeight: 700, fontSize: 16 }}>{p.name}</div>
-            <div style={{ color: '#777', fontSize: 13, marginTop: 4 }}>
+            <div style={{ color: c.muted, fontSize: 13, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               화풍: {p.style_prompt ? p.style_prompt.slice(0, 60) : '(미지정)'}
             </div>
-            <div style={{ color: '#aaa', fontSize: 12, marginTop: 2 }}>
+            <div style={{ color: c.faint, fontSize: 12, marginTop: 2 }}>
               {new Date(p.created_at).toLocaleString()}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flexShrink: 0 }}>
-            <button style={btn} onClick={() => onOpen(p.id)}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+            <button style={btnPrimary} onClick={() => onOpen(p.id)}>
               열기
             </button>
             <button style={btnDanger} onClick={() => remove(p.id, p.name)} disabled={busy}>

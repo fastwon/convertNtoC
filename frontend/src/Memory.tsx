@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getWorldBible, previewMemory, setWorldBible } from './api'
-import { btn, btnPrimary, card, input, label } from './ui'
+import { btn, btnPrimary, c, card, errText, input, label, muted, okText, sectionTitle } from './ui'
 
 export default function Memory({
   projectId,
@@ -71,9 +71,9 @@ export default function Memory({
   }
 
   return (
-    <section style={{ marginTop: 24 }}>
-      <h3>글로벌 메모리</h3>
-      <p style={{ color: '#888', fontSize: 13, marginTop: 0 }}>
+    <section>
+      <div style={{ ...sectionTitle, marginBottom: 4 }}>글로벌 메모리</div>
+      <p style={{ ...muted, margin: '0 0 12px' }}>
         화풍 + 세계관 + 캐릭터 뱅크 + 지난 회차 요약이 매 회차 작업에 자동 주입됩니다.
       </p>
 
@@ -91,7 +91,7 @@ export default function Memory({
           <button style={btnPrimary} onClick={save} disabled={busy || !loaded}>
             세계관 저장
           </button>
-          {saved && <span style={{ color: 'green' }}>저장됨 ✓</span>}
+          {saved && <span style={okText}>저장됨 ✓</span>}
           <button style={btn} onClick={showPreview} disabled={busy}>
             {preview === null ? '주입되는 메모리 보기' : '메모리 새로고침'}
           </button>
@@ -103,12 +103,12 @@ export default function Memory({
         </div>
       </div>
 
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+      {error && <p style={errText}>{error}</p>}
 
       {preview !== null && (
         <div style={card}>
           <strong>실제 주입되는 컨텍스트</strong>
-          <span style={{ color: '#888', fontSize: 12, marginLeft: 8 }}>
+          <span style={{ ...muted, fontSize: 12, marginLeft: 8 }}>
             {previewChars.toLocaleString()}자 (LLM system 프리픽스로 전송·캐시됨)
           </span>
           <pre
@@ -116,10 +116,10 @@ export default function Memory({
               marginTop: 8,
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-word',
-              background: '#fafafa',
-              border: '1px solid #eee',
-              borderRadius: 6,
-              padding: 10,
+              background: c.subtle,
+              border: `1px solid ${c.border}`,
+              borderRadius: 8,
+              padding: 12,
               maxHeight: 320,
               overflow: 'auto',
               fontSize: 12,

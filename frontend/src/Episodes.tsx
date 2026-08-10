@@ -13,7 +13,21 @@ import {
 } from './api'
 import ComicViewer from './ComicViewer'
 import Storyboard from './Storyboard'
-import { btn, btnDanger, btnPrimary, card, input, label } from './ui'
+import {
+  badge,
+  btn,
+  btnDanger,
+  btnPrimary,
+  c,
+  card,
+  errText,
+  input,
+  label,
+  muted,
+  okText,
+  sectionTitle,
+  subCard,
+} from './ui'
 
 // one editable row in the extraction-confirm list
 type Draft = {
@@ -147,11 +161,10 @@ function EpisodeRow({
   return (
     <div style={card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <strong>{ep.number}화</strong>
-          <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>
-            {chars.toLocaleString()}자 · {ep.status}
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <strong style={{ fontSize: 15 }}>{ep.number}화</strong>
+          <span style={{ ...muted, fontSize: 12 }}>{chars.toLocaleString()}자</span>
+          <span style={badge('muted')}>{ep.status}</span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button style={btnPrimary} onClick={() => setViewerOpen((v) => !v)}>
@@ -178,7 +191,7 @@ function EpisodeRow({
             <button style={btnPrimary} onClick={save} disabled={busy}>
               본문 저장
             </button>
-            {saved && <span style={{ color: 'green' }}>저장됨 ✓</span>}
+            {saved && <span style={okText}>저장됨 ✓</span>}
             <button style={btn} onClick={extract} disabled={extracting || !ep.raw_text.trim()}>
               {extracting ? '인물 추출 중…' : '인물 추출'}
             </button>
@@ -188,10 +201,10 @@ function EpisodeRow({
           </div>
 
           {summaryMsg && (
-            <p style={{ marginTop: 8, color: summaryMsg === '요약 완료' ? '#2d7d2d' : 'crimson' }}>
+            <p style={{ marginTop: 8, ...(summaryMsg === '요약 완료' ? okText : errText) }}>
               {summaryMsg}
               {usage && (
-                <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>
+                <span style={{ ...muted, fontSize: 12, marginLeft: 8 }}>
                   (입력 {usage.input} · 출력 {usage.output} · 캐시적중 {usage.cache_read} 토큰)
                 </span>
               )}
@@ -199,38 +212,23 @@ function EpisodeRow({
           )}
 
           {ep.summary && (
-            <div
-              style={{
-                marginTop: 8,
-                background: '#f7fbf7',
-                border: '1px solid #dbeadb',
-                borderRadius: 6,
-                padding: 10,
-              }}
-            >
+            <div style={{ ...subCard, marginTop: 10 }}>
               <strong style={{ fontSize: 13 }}>회차 요약 (다음 회차에 자동 주입됨)</strong>
-              <div style={{ fontSize: 13, color: '#333', marginTop: 4 }}>{ep.summary}</div>
+              <div style={{ fontSize: 13, color: c.text, marginTop: 4 }}>{ep.summary}</div>
             </div>
           )}
 
-          {extractError && (
-            <p style={{ color: 'crimson', marginTop: 8 }}>{extractError}</p>
-          )}
+          {extractError && <p style={{ ...errText, marginTop: 8 }}>{extractError}</p>}
           {drafts && (
-            <div style={{ marginTop: 12 }}>
+            <div style={{ marginTop: 14 }}>
               <strong>추출된 인물 ({drafts.length}) — 확인 후 저장</strong>
-              <p style={{ color: '#aaa', fontSize: 12, margin: '2px 0 8px' }}>
+              <p style={{ ...muted, fontSize: 12, margin: '2px 0 8px' }}>
                 신규 인물은 체크하면 저장됩니다. 기존 인물은 <b>기본 해제</b>이며, 체크하면 이번
                 회차 관찰로 <b>설명이 갱신</b>됩니다.
               </p>
-              {drafts.length === 0 && (
-                <p style={{ color: '#888' }}>인식된 이름있는 인물이 없습니다.</p>
-              )}
+              {drafts.length === 0 && <p style={muted}>인식된 이름있는 인물이 없습니다.</p>}
               {drafts.map((d, i) => (
-                <div
-                  key={i}
-                  style={{ border: '1px solid #eee', borderRadius: 6, padding: 10, marginBottom: 6 }}
-                >
+                <div key={i} style={{ ...subCard, marginBottom: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <input
                       type="checkbox"
@@ -242,16 +240,7 @@ function EpisodeRow({
                       value={d.name}
                       onChange={(e) => patchDraft(i, { name: e.target.value })}
                     />
-                    <span
-                      style={{
-                        fontSize: 12,
-                        padding: '1px 6px',
-                        borderRadius: 4,
-                        background: d.is_new ? '#e8f4ff' : '#eee',
-                        color: d.is_new ? '#1e6fd0' : '#666',
-                        flexShrink: 0,
-                      }}
-                    >
+                    <span style={badge(d.is_new ? 'accent' : 'muted')}>
                       {d.is_new ? '신규' : '기존'}
                     </span>
                   </div>
@@ -260,17 +249,17 @@ function EpisodeRow({
                       style={{
                         marginTop: 6,
                         fontSize: 12,
-                        color: '#777',
-                        background: '#f6f6f6',
-                        border: '1px solid #eee',
-                        borderRadius: 4,
+                        color: c.muted,
+                        background: c.surface,
+                        border: `1px solid ${c.border}`,
+                        borderRadius: 6,
                         padding: '6px 8px',
                       }}
                     >
                       <b>현재 뱅크 설명:</b> {d.current_traits || '(없음)'}
                     </div>
                   )}
-                  <div style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
+                  <div style={{ fontSize: 12, color: c.muted, marginTop: 6 }}>
                     {d.is_new ? '특징' : '이번 회차 관찰 (체크 시 이 내용으로 갱신)'}
                   </div>
                   <textarea
@@ -285,7 +274,7 @@ function EpisodeRow({
                   <button style={btnPrimary} onClick={saveToBank} disabled={savingBank || saveCount === 0}>
                     선택 {saveCount}명 저장·갱신
                   </button>
-                  {bankMsg && <span style={{ color: '#2d7d2d' }}>{bankMsg}</span>}
+                  {bankMsg && <span style={okText}>{bankMsg}</span>}
                 </div>
               )}
             </div>
@@ -337,8 +326,8 @@ export default function Episodes({
   }
 
   return (
-    <section style={{ marginTop: 24 }}>
-      <h3>회차 (Episode)</h3>
+    <section>
+      <div style={{ ...sectionTitle, marginBottom: 12 }}>회차</div>
 
       <div style={card}>
         <strong>새 회차 업로드</strong>
@@ -357,10 +346,10 @@ export default function Episodes({
         </div>
       </div>
 
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      {!episodes && !error && <p>불러오는 중…</p>}
+      {error && <p style={errText}>{error}</p>}
+      {!episodes && !error && <p style={muted}>불러오는 중…</p>}
       {episodes && episodes.length === 0 && (
-        <p style={{ color: '#888' }}>아직 회차가 없습니다. 위에서 1화를 올려보세요.</p>
+        <p style={muted}>아직 회차가 없습니다. 위에서 1화를 올려보세요.</p>
       )}
       {episodes?.map((ep) => (
         <EpisodeRow

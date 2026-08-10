@@ -13,7 +13,7 @@ import {
   type Panel,
   type PanelDialogue,
 } from './api'
-import { btn, btnDanger, btnPrimary, input } from './ui'
+import { badge, btnDanger, btnPrimary, btnSm, c, input, muted } from './ui'
 
 function bubbleStyle(type: PanelDialogue['type']): CSSProperties {
   const base: CSSProperties = {
@@ -206,35 +206,35 @@ function PanelCard({ panel, index, onChanged }: { panel: Panel; index: number; o
   }
 
   return (
-    <div style={{ border: '1px solid #e3e3e3', borderRadius: 8, padding: 12, marginBottom: 8 }}>
+    <div style={{ border: `1px solid ${c.border}`, borderRadius: 12, padding: 14, marginBottom: 10, background: c.surface }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <strong>컷 {index + 1}</strong>
-        <button style={{ ...btnDanger, fontSize: 12 }} onClick={remove} disabled={busy}>
+        <strong style={{ fontSize: 15 }}>컷 {index + 1}</strong>
+        <button style={{ ...btnDanger, padding: '4px 10px', fontSize: 13 }} onClick={remove} disabled={busy}>
           컷 삭제
         </button>
       </div>
 
       {panel.characters && panel.characters.length > 0 && (
-        <div style={{ margin: '6px 0', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {panel.characters.map((c, i) => (
-            <span key={i} style={{ fontSize: 12, background: '#eef4ff', color: '#2456a6', borderRadius: 4, padding: '1px 6px' }}>
-              {c.name}
-              {c.appearance_label && c.appearance_label !== '기본' ? ` · ${c.appearance_label}` : ''}
+        <div style={{ margin: '8px 0', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {panel.characters.map((ch, i) => (
+            <span key={i} style={badge('accent')}>
+              {ch.name}
+              {ch.appearance_label && ch.appearance_label !== '기본' ? ` · ${ch.appearance_label}` : ''}
             </span>
           ))}
         </div>
       )}
 
       {/* editing canvas: image + draggable bubbles */}
-      <div ref={containerRef} style={{ position: 'relative', width: '100%', maxWidth: 380, margin: '8px auto', background: '#fafafa', borderRadius: 6, minHeight: 60 }}>
+      <div ref={containerRef} style={{ position: 'relative', width: '100%', maxWidth: 380, margin: '8px auto', background: c.subtle, borderRadius: 8, minHeight: 60 }}>
         {hasImg ? (
           <img
             src={showLettered && hasLettered ? letteredImageUrl(panel.id, letterV) : panelImageUrl(panel.id, imgV)}
             alt={`컷 ${index + 1}`}
-            style={{ width: '100%', display: 'block', borderRadius: 6 }}
+            style={{ width: '100%', display: 'block', borderRadius: 8 }}
           />
         ) : (
-          <div style={{ padding: 24, textAlign: 'center', color: '#bbb', fontSize: 13 }}>이미지 없음</div>
+          <div style={{ padding: 24, textAlign: 'center', color: c.faint, fontSize: 13 }}>이미지 없음</div>
         )}
         {hasImg && !showLettered &&
           dialogue.map((d, i) => (
@@ -242,53 +242,57 @@ function PanelCard({ panel, index, onChanged }: { panel: Panel; index: number; o
           ))}
       </div>
       {hasImg && !showLettered && (
-        <div style={{ textAlign: 'center', fontSize: 11, color: '#aaa', marginTop: -2 }}>
+        <div style={{ textAlign: 'center', fontSize: 11, color: c.faint, marginTop: -2 }}>
           말풍선을 끌어서 원하는 위치에 놓으세요
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 8, flexWrap: 'wrap' }}>
-        <button style={btn} onClick={genImage} disabled={genning}>
+      <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+        <button style={btnSm} onClick={genImage} disabled={genning}>
           {genning ? '생성 중…' : hasImg ? '이미지 재생성' : '이미지 자동생성'}
         </button>
         <input ref={uploadRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onUpload} />
-        <button style={btn} onClick={() => uploadRef.current?.click()} disabled={genning}>
+        <button style={btnSm} onClick={() => uploadRef.current?.click()} disabled={genning}>
           이미지 업로드
         </button>
-        <button style={btn} onClick={copyPrompt}>
+        <button style={btnSm} onClick={copyPrompt}>
           프롬프트 복사
         </button>
-        <button style={btnPrimary} onClick={doLetter} disabled={lettering || !hasImg}>
+        <button style={{ ...btnPrimary, padding: '5px 10px', fontSize: 13 }} onClick={doLetter} disabled={lettering || !hasImg}>
           {lettering ? '합성 중…' : '대사 합성'}
         </button>
         {hasLettered && (
-          <button style={btn} onClick={() => setShowLettered((v) => !v)}>
+          <button style={btnSm} onClick={() => setShowLettered((v) => !v)}>
             {showLettered ? '편집(원본)' : '합성본 보기'}
           </button>
         )}
       </div>
-      {msg && <p style={{ textAlign: 'center', color: msg.includes('실패') || msg.includes('오류') ? 'crimson' : '#2d7d2d', fontSize: 12 }}>{msg}</p>}
+      {msg && (
+        <p style={{ textAlign: 'center', fontSize: 12, marginTop: 6, color: msg.includes('실패') || msg.includes('오류') ? c.danger : c.success }}>
+          {msg}
+        </p>
+      )}
       {promptText && (
         <div style={{ marginTop: 6 }}>
-          <div style={{ fontSize: 11, color: '#888' }}>
+          <div style={{ fontSize: 11, color: c.muted }}>
             이 프롬프트 + 캐릭터 참조 이미지를 Gemini 웹에 넣어 만든 뒤, "이미지 업로드"로 넣으세요
           </div>
           <textarea
             readOnly
-            style={{ ...input, minHeight: 54, marginTop: 2, background: '#f7f7f7' }}
+            style={{ ...input, minHeight: 54, marginTop: 2, background: c.subtle }}
             value={promptText}
             onFocus={(e) => e.currentTarget.select()}
           />
         </div>
       )}
 
-      <div style={{ fontSize: 12, color: '#888', marginTop: 8 }}>장면 묘사 (이미지 생성 기준)</div>
-      <textarea style={{ ...input, minHeight: 54, marginTop: 2, resize: 'vertical' }} value={scene} onChange={(e) => setScene(e.target.value)} />
-      <button style={{ ...btn, fontSize: 12, marginTop: 4 }} onClick={saveScene} disabled={busy}>
+      <div style={{ ...muted, fontSize: 12, marginTop: 12 }}>장면 묘사 (이미지 생성 기준)</div>
+      <textarea style={{ ...input, minHeight: 54, marginTop: 4, resize: 'vertical' }} value={scene} onChange={(e) => setScene(e.target.value)} />
+      <button style={{ ...btnSm, marginTop: 6 }} onClick={saveScene} disabled={busy}>
         장면 저장
       </button>
 
-      <div style={{ fontSize: 12, color: '#888', marginTop: 10 }}>대사 (위 이미지에서 드래그로 위치 조정)</div>
+      <div style={{ ...muted, fontSize: 12, marginTop: 12 }}>대사 (위 이미지에서 드래그로 위치 조정)</div>
       {dialogue.map((d, i) => (
         <div key={i} style={{ display: 'flex', gap: 4, marginTop: 4 }}>
           <select
@@ -304,23 +308,23 @@ function PanelCard({ panel, index, onChanged }: { panel: Panel; index: number; o
             <option value="narration">지문</option>
           </select>
           {d.type === 'narration' ? (
-            <span style={{ width: 74, fontSize: 11, color: '#aaa', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span style={{ width: 74, fontSize: 11, color: c.faint, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               (화자 없음)
             </span>
           ) : (
             <input style={{ ...input, width: 74 }} value={d.speaker} placeholder="화자" onChange={(e) => patchLine(i, { speaker: e.target.value })} />
           )}
           <input style={{ ...input, flex: 1 }} value={d.text} placeholder="내용" onChange={(e) => patchLine(i, { text: e.target.value })} />
-          <button style={{ ...btnDanger, fontSize: 12 }} onClick={() => removeLine(i)}>
+          <button style={{ ...btnDanger, padding: '4px 10px', fontSize: 13 }} onClick={() => removeLine(i)}>
             ✕
           </button>
         </div>
       ))}
-      <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-        <button style={{ ...btn, fontSize: 12 }} onClick={addLine}>
+      <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+        <button style={btnSm} onClick={addLine}>
           + 대사
         </button>
-        <button style={{ ...btn, fontSize: 12 }} onClick={saveDialogue} disabled={busy}>
+        <button style={btnSm} onClick={saveDialogue} disabled={busy}>
           대사·위치 저장
         </button>
       </div>
@@ -362,9 +366,9 @@ export default function Storyboard({ episodeId }: { episodeId: string }) {
         <button style={btnPrimary} onClick={generate} disabled={busy}>
           {busy ? '콘티 생성 중…' : panels && panels.length > 0 ? '콘티 다시 생성' : '콘티 생성'}
         </button>
-        {panels && panels.length > 0 && <span style={{ color: '#888', fontSize: 13 }}>{panels.length}개 컷</span>}
+        {panels && panels.length > 0 && <span style={muted}>{panels.length}개 컷</span>}
       </div>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+      {error && <p style={{ color: c.danger }}>{error}</p>}
       <div style={{ marginTop: 10 }}>
         {panels?.map((p, i) => (
           <PanelCard key={p.id} panel={p} index={i} onChanged={load} />

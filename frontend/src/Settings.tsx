@@ -8,7 +8,7 @@ import {
   type SettingsStatus,
   type Slot,
 } from './api'
-import { btnDanger, btnPrimary, card, input } from './ui'
+import { btnDanger, btnPrimary, c, card, errText, input, muted, okText, pageTitle } from './ui'
 
 function KeyRow(props: {
   label: string
@@ -56,12 +56,12 @@ function KeyRow(props: {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <strong>{label}</strong>
         {present ? (
-          <span style={{ color: 'green' }}>저장됨 {masked}</span>
+          <span style={okText}>저장됨 {masked}</span>
         ) : (
-          <span style={{ color: '#999' }}>미설정</span>
+          <span style={{ color: c.faint, fontSize: 13 }}>미설정</span>
         )}
       </div>
-      <p style={{ color: '#666', fontSize: 13, margin: '6px 0' }}>{hint}</p>
+      <p style={{ ...muted, margin: '6px 0' }}>{hint}</p>
       <div style={{ display: 'flex', gap: 8 }}>
         <input
           style={input}
@@ -80,7 +80,7 @@ function KeyRow(props: {
           </button>
         )}
       </div>
-      {msg && <p style={{ color: msg.ok ? 'green' : 'crimson', marginTop: 8 }}>{msg.text}</p>}
+      {msg && <p style={{ ...(msg.ok ? okText : errText), marginTop: 8 }}>{msg.text}</p>}
     </div>
   )
 }
@@ -120,12 +120,12 @@ export default function Settings() {
     }
   }
 
-  if (error) return <p style={{ color: 'crimson' }}>설정 로드 오류: {error}</p>
-  if (!status) return <p>불러오는 중…</p>
+  if (error) return <p style={errText}>설정 로드 오류: {error}</p>
+  if (!status) return <p style={muted}>불러오는 중…</p>
 
   return (
     <section>
-      <h2>설정 · API 키</h2>
+      <h2 style={pageTitle}>설정 · API 키</h2>
 
       <div style={card}>
         <label style={{ display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer' }}>
@@ -142,7 +142,7 @@ export default function Settings() {
             </span>
           </span>
         </label>
-        <p style={{ marginTop: 10, color: status.ready ? 'green' : '#c47f00' }}>
+        <p style={{ marginTop: 10, fontSize: 13, color: status.ready ? c.success : '#c47f00' }}>
           {status.ready
             ? `사용 준비 완료 ✓ (현재: ${status.active_provider === 'gemini' ? '무료 Gemini' : 'Claude'})`
             : status.free_mode

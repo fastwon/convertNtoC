@@ -14,7 +14,7 @@ import {
   type Appearance,
   type Character,
 } from './api'
-import { btn, btnDanger, card, input, label } from './ui'
+import { btn, btnDanger, card, errText, input, label, muted, okText, sectionTitle } from './ui'
 
 function AppearanceRow({ ap, onChanged }: { ap: Appearance; onChanged: () => void }) {
   const [labelText, setLabelText] = useState(ap.label)
@@ -310,7 +310,7 @@ function CharacterCard({
             <button style={btn} onClick={saveInfo} disabled={busy || !name.trim()}>
               이름·설명 저장
             </button>
-            {saved && <span style={{ color: 'green', fontSize: 13 }}>저장됨 ✓</span>}
+            {saved && <span style={okText}>저장됨 ✓</span>}
             <button style={btnDanger} onClick={removeChar} disabled={busy}>
               캐릭터 삭제
             </button>
@@ -353,7 +353,6 @@ export default function Characters({
 }) {
   const [chars, setChars] = useState<Character[] | null>(null)
   const [error, setError] = useState('')
-  const [open, setOpen] = useState(true)
 
   const refresh = useCallback(() => {
     setError('')
@@ -367,24 +366,21 @@ export default function Characters({
   }, [refresh, refreshKey])
 
   return (
-    <section style={{ marginTop: 24 }}>
-      <h3 style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => setOpen((v) => !v)}>
-        {open ? '▼' : '▶'} 캐릭터 뱅크{chars ? ` (${chars.length})` : ''}
-      </h3>
-      {open && (
-        <>
-          {error && <p style={{ color: 'crimson' }}>{error}</p>}
-          {!chars && !error && <p>불러오는 중…</p>}
-          {chars && chars.length === 0 && (
-            <p style={{ color: '#888' }}>
-              아직 등록된 캐릭터가 없습니다. 아래 회차에서 인물을 추출해 저장해보세요.
-            </p>
-          )}
-          {chars?.map((ch) => (
-            <CharacterCard key={ch.id} ch={ch} refreshKey={refreshKey} onChanged={refresh} />
-          ))}
-        </>
+    <section>
+      <div style={{ ...sectionTitle, marginBottom: 4 }}>
+        캐릭터 뱅크{chars ? ` (${chars.length})` : ''}
+      </div>
+      <p style={{ ...muted, margin: '0 0 12px' }}>
+        캐릭터별 성격과 시점별 외형을 관리합니다. 회차에서 인물을 추출해 채워집니다.
+      </p>
+      {error && <p style={errText}>{error}</p>}
+      {!chars && !error && <p style={muted}>불러오는 중…</p>}
+      {chars && chars.length === 0 && (
+        <p style={muted}>아직 등록된 캐릭터가 없습니다. 회차 탭에서 인물을 추출해 저장해보세요.</p>
       )}
+      {chars?.map((ch) => (
+        <CharacterCard key={ch.id} ch={ch} refreshKey={refreshKey} onChanged={refresh} />
+      ))}
     </section>
   )
 }
