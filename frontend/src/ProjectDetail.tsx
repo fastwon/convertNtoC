@@ -10,8 +10,9 @@ export default function ProjectDetail({ id, onBack }: { id: string; onBack: () =
   const [error, setError] = useState('')
   const [name, setName] = useState('')
   const [style, setStyle] = useState('')
-  const [font, setFont] = useState('')
-  const [bubble, setBubble] = useState('')
+  const [font, setFont] = useState('맑은 고딕')
+  const [fontScale, setFontScale] = useState('보통')
+  const [bubble, setBubble] = useState('둥근')
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [charRefresh, setCharRefresh] = useState(0)
@@ -24,8 +25,9 @@ export default function ProjectDetail({ id, onBack }: { id: string; onBack: () =
         setName(p.name)
         setStyle(p.style_prompt)
         const fs = (p.font_settings ?? {}) as Record<string, string>
-        setFont(fs.font_family ?? '')
-        setBubble(fs.bubble_style ?? '')
+        setFont(fs.font_family || '맑은 고딕')
+        setFontScale(fs.font_scale || '보통')
+        setBubble(fs.bubble_style || '둥근')
       })
       .catch((e: unknown) => setError(String(e)))
   }, [id])
@@ -41,7 +43,7 @@ export default function ProjectDetail({ id, onBack }: { id: string; onBack: () =
       await updateProject(id, {
         name: name.trim(),
         style_prompt: style.trim(),
-        font_settings: { font_family: font.trim(), bubble_style: bubble.trim() },
+        font_settings: { font_family: font, font_scale: fontScale, bubble_style: bubble },
       })
       setSaved(true)
       load()
@@ -83,16 +85,35 @@ export default function ProjectDetail({ id, onBack }: { id: string; onBack: () =
           </div>
 
           <div style={card}>
-            <strong>폰트 · 말풍선 (값만 저장 — 합성은 이후 단계)</strong>
+            <strong>폰트 · 말풍선</strong>
+            <p style={{ color: '#888', fontSize: 12, margin: '4px 0 0' }}>
+              대사 합성(말풍선 렌더링)에 적용됩니다. 변경 후 각 컷에서 <b>대사 합성</b>을 다시 눌러야
+              반영돼요.
+            </p>
             <label style={label}>폰트</label>
-            <input style={input} value={font} placeholder="예: 나눔고딕" onChange={(e) => setFont(e.target.value)} />
-            <label style={label}>말풍선 스타일</label>
-            <input
-              style={input}
-              value={bubble}
-              placeholder="예: 둥근 / 사각 / 생각풍선"
-              onChange={(e) => setBubble(e.target.value)}
-            />
+            <select style={input} value={font} onChange={(e) => setFont(e.target.value)}>
+              {['맑은 고딕', '굴림', '돋움', '바탕', '나눔고딕'].map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+            <label style={label}>글자 크기</label>
+            <select style={input} value={fontScale} onChange={(e) => setFontScale(e.target.value)}>
+              {['작게', '보통', '크게'].map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+            <label style={label}>말풍선 스타일 (대사용)</label>
+            <select style={input} value={bubble} onChange={(e) => setBubble(e.target.value)}>
+              {['둥근', '사각', '굵은 테두리'].map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
