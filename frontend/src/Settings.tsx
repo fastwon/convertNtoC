@@ -2,13 +2,110 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   deleteKey,
   getStatus,
+  getSystemInfo,
+  openDataFolder,
+  purgeBackups,
   saveKey,
   setFreeMode,
   setImageProvider,
   type SettingsStatus,
   type Slot,
+  type SystemInfo,
 } from './api'
-import { btnDanger, btnPrimary, c, card, errText, input, muted, okText, pageTitle } from './ui'
+import { badge, btn, btnDanger, btnPrimary, c, card, errText, input, muted, okText, pageTitle, sectionTitle } from './ui'
+
+function fmtBytes(n: number): string {
+  if (n < 1024) return `${n} B`
+  const u = ['KB', 'MB', 'GB', 'TB']
+  let v = n / 1024
+  let i = 0
+  while (v >= 1024 && i < u.length - 1) {
+    v /= 1024
+    i++
+  }
+  return `${v.toFixed(v < 10 ? 1 : 0)} ${u[i]}`
+}
+
+function StorageSection() {
+  const [info, setInfo] = useState<SystemInfo | null>(null)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const load = useCallback(() => {
+    setError('')
+    getSystemInfo()
+      .then(setInfo)
+      .catch((e: unknown) => setError(String(e)))
+  }, [])
+  useEffect(() => {
+    load()
+  }, [load])
+
+  async function purge() {
+    if (!info) return
+    if (!confirm('재업로드로 생긴 이전 이미지 백업(panels/old)을 모두 삭제할까요?\n현재 사용 중인 이미지는 그대로 유지됩니다.')) return
+    setBusy(true)
+    setMsg('')
+    try {
+      const r = await purgeBackups()
+      setMsg(`백업 ${fmtBytes(r.freed)} 정리됨`)
+      load()
+    } catch (e: unknown) {
+      setMsg(String(e instanceof Error ? e.message : e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const row = (k: string, v: React.ReactNode) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: `1px solid ${c.border}`, fontSize: 13 }}>
+      <span style={{ color: c.muted }}>{k}</span>
+      <span style={{ color: c.text, fontWeight: 500 }}>{v}</span>
+    </div>
+  )
+
+  return (
+    <div style={card}>
+      <div style={sectionTitle}>스토리지</div>
+      {error && <p style={errText}>{error}</p>}
+      {!info && !error && <p style={muted}>불러오는 중…</p>}
+      {info && (
+        <>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '10px 0' }}>
+            <span style={badge('muted')}>프로젝트 {info.counts.projects}</span>
+            <span style={badge('muted')}>회차 {info.counts.episodes}</span>
+            <span style={badge('muted')}>캐릭터 {info.counts.characters}</span>
+            <span style={badge('muted')}>컷 {info.counts.panels}</span>
+          </div>
+          {row('총 사용량', fmtBytes(info.total_size))}
+          {row('이미지', fmtBytes(info.images_size))}
+          {row('데이터베이스', fmtBytes(info.db_size))}
+          {row('백업(정리 가능)', fmtBytes(info.backup_size))}
+          <div style={{ ...muted, fontSize: 12, margin: '10px 0 4px' }}>데이터 폴더</div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <code style={{ fontSize: 12, background: c.subtle, border: `1px solid ${c.border}`, borderRadius: 6, padding: '4px 8px', wordBreak: 'break-all', flex: 1, minWidth: 0 }}>
+              {info.data_dir}
+            </code>
+            <button style={btn} onClick={() => openDataFolder().catch(() => {})}>
+              폴더 열기
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 12 }}>
+            <button style={btnDanger} onClick={purge} disabled={busy || info.backup_size === 0}>
+              백업 정리 ({fmtBytes(info.backup_size)})
+            </button>
+            {msg && <span style={okText}>{msg}</span>}
+          </div>
+          <p style={{ ...muted, fontSize: 12, marginTop: 8, marginBottom: 0 }}>
+            프로젝트 삭제는 대시보드에서 할 수 있어요. 삭제 시 그 프로젝트의 이미지·데이터가 모두
+            제거됩니다.
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
 
 function KeyRow(props: {
   label: string
@@ -206,9 +303,11 @@ export default function Settings() {
         </p>
       </div>
 
-      <p style={{ color: '#999', fontSize: 12 }}>
+      <p style={{ color: c.faint, fontSize: 12 }}>
         키는 OS 자격증명 저장소에만 저장되며, 화면에는 마스킹되어 표시됩니다.
       </p>
+
+      <StorageSection />
     </section>
   )
 }

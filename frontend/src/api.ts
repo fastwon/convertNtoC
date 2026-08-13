@@ -401,3 +401,27 @@ export function refImageUrl(appearanceId: string, version: number | string = '')
   // pass a changing `version` (e.g. Date.now()) after re-upload to bust the cache
   return `/api/appearances/${appearanceId}/ref-image?v=${encodeURIComponent(String(version))}`
 }
+
+// ---- system / storage ----
+export type SystemInfo = {
+  data_dir: string
+  db_path: string
+  db_exists: boolean
+  db_size: number
+  images_size: number
+  backup_size: number
+  total_size: number
+  counts: { projects: number; episodes: number; characters: number; panels: number }
+}
+
+export async function getSystemInfo(): Promise<SystemInfo> {
+  return jsonOrThrow(await fetch('/api/system/info'))
+}
+
+export async function openDataFolder(): Promise<{ folder: string }> {
+  return jsonOrThrow(await fetch('/api/system/open-data-folder', { method: 'POST' }))
+}
+
+export async function purgeBackups(): Promise<{ freed: number }> {
+  return jsonOrThrow(await fetch('/api/system/purge-backups', { method: 'POST' }))
+}
