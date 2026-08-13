@@ -15,7 +15,10 @@ import urllib.request
 import uvicorn
 import webview
 
-from .server import app
+# Absolute import (not `from .server`): PyInstaller runs this file as the
+# top-level __main__, which has no parent package for a relative import.
+# `python -m app.main` works with the absolute form too.
+from app.server import app
 
 
 def _resolve_port() -> int:
