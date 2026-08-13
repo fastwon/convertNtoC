@@ -1,6 +1,6 @@
 # convertN2C — 단계별 개발 로드맵
 
-> **진행 상황:** P0 ✅ · P1 ✅ · P2 ✅ · P3 ✅ · **P4 ✅** · **P5 ✅** · **P6 ✅** · **P7 ✅** (대사·말풍선 합성 + 세로 뷰어 + 내보내기 PNG/PDF/ZIP) · **다음 → P8 (배포 마감, exe 빌드)**
+> **진행 상황:** P0~P7 ✅ · **P8 거의 완료** — 스토리지 관리 UI, 비용 표시, 에러 메시지 정리, 사용 설명서(앱 내 도움말+USER_GUIDE), PyInstaller 빌드 준비 완료. **남은 것: 사용자가 실제 exe 빌드·실행 확인** (`.\packaging\build.ps1`).
 > ※ Gemini는 thinking 모델이라 출력 예산에 thinking 여유분(+3072) 필요 — 없으면 답변이 잘림.
 > ※ **벡터 저장소(sqlite-vec) 제거됨.** 얼굴 임베딩은 끝내 미사용 — 캐릭터 일관성은 *텍스트*(LLM 이름 매칭 + vision 외형 묘사 주입)로 처리. 벡터는 "같은 얼굴로 그리기"(생성) 문제를 못 풀어 걷어냄.
 > ※ 이미지 공급자: Pollinations(무료 기본) + Gemini 이미지(유료·결제 필요). 외부 API(Replicate/fal)는 미구현. **컷 이미지 직접 업로드**(Gemini 웹에서 만든 그림)도 지원.
@@ -145,7 +145,9 @@
 **목표:** 타인 배포 가능한 수준의 안정화.
 *의존: 전체*
 
-- [ ] PyInstaller 최종 빌드(아이콘/버전/용량 점검), WebView2 부재 안내·설치 가이드
+- [x] PyInstaller 빌드 준비 — spec 보완(pywebview/keyring/google-genai collect_all, UPX off),
+  packaging/build.ps1 빌드 스크립트, CLAUDE.md에 실제 명령 기록. **실제 exe 빌드·실행은 사용자가 수행.**
+  (아이콘/버전 정보는 선택 — spec의 icon=None 자리에 .ico 추가 가능)
 - [x] 비용 투명성: 프로젝트별 실사용 토큰·이미지 수 + Claude 단가 기반 예상 비용($) 표시
   (usage_log 테이블에 호출별 기록, 설정 탭 '사용량·예상 비용' 카드; 무료 Gemini/Pollinations=$0)
 - [x] 스토리지 관리 UI — 설정 화면에 사용량(총·이미지·DB·백업)·개수, 데이터 폴더 열기,

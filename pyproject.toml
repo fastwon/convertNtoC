@@ -28,7 +28,7 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["app", "app.api", "app.llm", "app.services", "app.storage"]
+packages = ["app", "app.api", "app.image", "app.llm", "app.services", "app.storage"]
 
 [tool.ruff]
 line-length = 100

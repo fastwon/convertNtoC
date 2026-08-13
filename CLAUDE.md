@@ -41,13 +41,15 @@ This is an LLM-shaped product. Whenever you write or modify code that calls Clau
 
 ## Commands
 
-No build/test/lint tooling exists yet. When scaffolding, record the real commands here. Expected shape once built:
+Real commands (Windows / PowerShell, from repo root). The user runs `pip install` and app/exe launches themselves — suggest the command, don't run it.
 
-- Frontend: build the React SPA to static assets (Vite recommended; if Next.js, use `output: 'export'`).
-- Backend: run FastAPI on 127.0.0.1 for local dev.
-- Package: PyInstaller one-file build producing `convertN2C.exe`, with the React static assets included as bundled data.
-- In bundled mode, resolve bundled asset paths via `sys._MEIPASS`, not `__file__`.
-- Note: PyWebView needs the Edge WebView2 runtime on Windows (present by default on Win11).
+- **Python env / deps**: `.\.venv\Scripts\python.exe -m pip install -e ".[dev]"`
+- **Frontend build** (React → static): `cd frontend; npm install; npm run build` (outputs `frontend/dist`; served by FastAPI, and bundled into the exe as `frontend_dist`).
+- **Run the app (dev)**: `.\.venv\Scripts\python.exe -m app.main` — starts FastAPI on 127.0.0.1 (ephemeral port; override with `CONVERTN2C_PORT`) in a thread, then opens the PyWebView window. Backend (`app/*.py`) changes need an app restart; frontend changes need `npm run build` + restart.
+- **Lint**: `.\.venv\Scripts\python.exe -m ruff check app`
+- **Headless backend test**: `./.venv/Scripts/python.exe -c "..."` with `CONVERTN2C_DATA_DIR` set to a temp dir + FastAPI `TestClient` (never touches real user data).
+- **Package the exe**: `.\packaging\build.ps1` (builds the SPA, then `pyinstaller packaging/convertN2C.spec` → `dist/convertN2C.exe`, a single windowed exe). The spec `collect_all`s pywebview/keyring/google-genai so their dynamic submodules ship.
+- **Bundled paths**: resolve via `sys._MEIPASS` (see `app/paths.py`), not `__file__`. PyWebView needs the Edge WebView2 runtime (present by default on Win11).
 
 ## Conventions for new code
 
