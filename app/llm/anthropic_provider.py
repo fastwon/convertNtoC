@@ -18,6 +18,24 @@ from .util import parse_json_lenient
 DEFAULT_MODEL = "claude-sonnet-4-6"
 
 
+def _friendly_error(e: Exception) -> str:
+    """Map an Anthropic SDK error to a clear, actionable Korean message."""
+    if isinstance(e, anthropic.AuthenticationError):
+        return "Claude 인증 실패: 키가 올바르지 않거나 만료되었습니다. 설정에서 키를 확인하세요."
+    if isinstance(e, anthropic.PermissionDeniedError):
+        return "Claude 접근 권한이 없습니다. 키 권한이나 결제 상태를 확인하세요."
+    if isinstance(e, anthropic.RateLimitError):
+        return "Claude 요청 한도를 초과했습니다. 잠시 후 다시 시도하거나 사용량·결제를 확인하세요."
+    if isinstance(e, anthropic.APIConnectionError):
+        return "인터넷 연결에 실패했습니다. 온라인 상태를 확인한 뒤 다시 시도하세요."
+    if isinstance(e, anthropic.APIStatusError):
+        code = getattr(e, "status_code", None)
+        if isinstance(code, int) and code >= 500:
+            return "Claude 서버가 일시적으로 불안정합니다. 잠시 후 다시 시도하세요."
+        return f"Claude 호출 실패 (HTTP {code})."
+    return "Claude 호출 실패 (네트워크·키를 확인하세요)."
+
+
 class AnthropicProvider:
     name = "claude"
 
@@ -75,7 +93,7 @@ class AnthropicProvider:
         try:
             msg = self._client.messages.create(**kwargs)
         except Exception as e:  # noqa: BLE001
-            raise LLMError("Claude 호출 실패") from e
+            raise LLMError(_friendly_error(e)) from e
         self._record_usage(msg)
         return "".join(b.text for b in msg.content if b.type == "text")
 
@@ -99,7 +117,7 @@ class AnthropicProvider:
         try:
             msg = self._client.messages.create(**kwargs)
         except Exception as e:  # noqa: BLE001
-            raise LLMError("Claude 호출 실패") from e
+            raise LLMError(_friendly_error(e)) from e
         self._record_usage(msg)
         text = "".join(b.text for b in msg.content if b.type == "text")
         try:
@@ -131,6 +149,6 @@ class AnthropicProvider:
         try:
             msg = self._client.messages.create(**kwargs)
         except Exception as e:  # noqa: BLE001
-            raise LLMError("Claude 호출 실패") from e
+            raise LLMError(_friendly_error(e)) from e
         self._record_usage(msg)
         return "".join(b.text for b in msg.content if b.type == "text")

@@ -34,8 +34,17 @@ class PollinationsGenerator:
         try:
             r = httpx.get(url, params=params, timeout=180, follow_redirects=True)
             r.raise_for_status()
+        except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+            raise ImageError("인터넷 연결에 실패했습니다. 온라인 상태를 확인하세요.") from e
+        except httpx.TimeoutException as e:
+            raise ImageError("이미지 서버 응답이 지연됩니다. 잠시 후 다시 시도하세요.") from e
+        except httpx.HTTPStatusError as e:
+            code = e.response.status_code
+            if code == 429:
+                raise ImageError("이미지 서버가 혼잡합니다(429). 잠시 후 다시 시도하세요.") from e
+            raise ImageError(f"이미지 생성 실패 (HTTP {code}).") from e
         except Exception as e:  # noqa: BLE001
-            raise ImageError("이미지 생성 요청 실패 (네트워크 확인)") from e
+            raise ImageError("이미지 생성 요청 실패 (네트워크를 확인하세요).") from e
         if not r.headers.get("content-type", "").startswith("image"):
             raise ImageError("이미지가 반환되지 않았습니다")
         return r.content
