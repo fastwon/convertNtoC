@@ -111,6 +111,22 @@ CREATE TABLE IF NOT EXISTS app_config (
   key   TEXT PRIMARY KEY,
   value TEXT
 );
+
+-- per-call usage for cost transparency (the user pays for their own API use).
+CREATE TABLE IF NOT EXISTS usage_log (
+  id          TEXT PRIMARY KEY,
+  project_id  TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  ts          TEXT NOT NULL,
+  operation   TEXT NOT NULL,          -- extract / summarize / storyboard / describe / image
+  provider    TEXT NOT NULL,          -- claude / gemini / pollinations
+  model       TEXT,                   -- model id (null for keyless image gen)
+  input       INTEGER NOT NULL DEFAULT 0,
+  output      INTEGER NOT NULL DEFAULT 0,
+  cache_read  INTEGER NOT NULL DEFAULT 0,
+  cache_write INTEGER NOT NULL DEFAULT 0,
+  images      INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_usage_project ON usage_log(project_id);
 """
 
 

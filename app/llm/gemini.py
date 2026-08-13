@@ -43,6 +43,7 @@ class GeminiProvider:
         self._client = genai.Client(api_key=api_key)
         self._model = model
         self.last_usage: dict | None = None
+        self.last_model: str | None = None
 
     @staticmethod
     def _check_truncated(resp: object) -> None:
@@ -57,6 +58,7 @@ class GeminiProvider:
             )
 
     def _record_usage(self, resp: object) -> None:
+        self.last_model = self._model
         um = getattr(resp, "usage_metadata", None)
         self.last_usage = {
             "input": getattr(um, "prompt_token_count", 0) or 0,

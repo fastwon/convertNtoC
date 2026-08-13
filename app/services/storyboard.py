@@ -161,6 +161,8 @@ def generate_storyboard(episode_id: str) -> dict:
 
     saved = repo.replace_episode_panels(episode_id, panels)
     repo.set_episode_status(episode_id, "storyboarded")
+    repo.add_usage(episode.project_id, "storyboard", provider.name,
+                   getattr(provider, "last_model", None), getattr(provider, "last_usage", None))
     return {
         "provider": provider.name,
         "panels": [

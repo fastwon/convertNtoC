@@ -140,6 +140,10 @@ def describe_appearance_from_image(appearance_id: str) -> str:
     desc = desc.strip()
     if not desc:
         raise LLMError("외형 묘사 생성에 실패했습니다")
+    ch = repo.get_character(ap.character_id)
+    if ch is not None:
+        repo.add_usage(ch.project_id, "describe", provider.name,
+                       getattr(provider, "last_model", None), getattr(provider, "last_usage", None))
     return desc
 
 
@@ -163,4 +167,6 @@ def extract_characters(episode_id: str) -> dict:
     data = provider.generate_json(prompt, system=SYSTEM, schema=EXTRACTION_SCHEMA)
 
     characters = _validate_result(data, existing_ids, default_desc)
+    repo.add_usage(episode.project_id, "extract", provider.name,
+                   getattr(provider, "last_model", None), getattr(provider, "last_usage", None))
     return {"provider": provider.name, "characters": characters}

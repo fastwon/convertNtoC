@@ -1,9 +1,88 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getProject, updateProject, type Project } from './api'
+import { getProject, getProjectUsage, updateProject, type Project, type ProjectUsage } from './api'
 import Characters from './Characters'
 import Episodes from './Episodes'
 import Memory from './Memory'
-import { btnGhost, btnPrimary, c, card, input, label, okText, pageTitle, tabBar, tabBtn } from './ui'
+import {
+  badge,
+  btnGhost,
+  btnPrimary,
+  c,
+  card,
+  input,
+  label,
+  muted,
+  okText,
+  pageTitle,
+  sectionTitle,
+  tabBar,
+  tabBtn,
+} from './ui'
+
+function UsageCard({ projectId }: { projectId: string }) {
+  const [u, setU] = useState<ProjectUsage | null>(null)
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    getProjectUsage(projectId)
+      .then(setU)
+      .catch((e: unknown) => setErr(String(e)))
+  }, [projectId])
+  if (err) return null
+  if (!u) return null
+  const t = u.totals
+  const noneYet = u.by_operation.length === 0
+  return (
+    <div style={card}>
+      <div style={sectionTitle}>사용량 · 예상 비용</div>
+      {noneYet ? (
+        <p style={{ ...muted, margin: '8px 0 0' }}>아직 생성 기록이 없습니다.</p>
+      ) : (
+        <>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'baseline', margin: '10px 0' }}>
+            <span style={{ fontSize: 22, fontWeight: 700 }}>
+              {u.priced ? `$${u.est_cost_usd.toFixed(u.est_cost_usd < 1 ? 4 : 2)}` : '$0'}
+            </span>
+            <span style={muted}>예상 (사용자 키 기준)</span>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+            <span style={badge('muted')}>입력 {t.input.toLocaleString()}</span>
+            <span style={badge('muted')}>출력 {t.output.toLocaleString()}</span>
+            <span style={badge('muted')}>캐시적중 {t.cache_read.toLocaleString()}</span>
+            <span style={badge('accent')}>이미지 {t.images}</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {u.by_operation.map((o) => (
+              <div
+                key={o.operation}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: 13,
+                  padding: '4px 0',
+                  borderBottom: `1px solid ${c.border}`,
+                }}
+              >
+                <span style={{ color: c.muted }}>
+                  {o.label} <span style={{ color: c.faint }}>×{o.calls}</span>
+                </span>
+                <span style={{ color: c.text }}>
+                  {o.operation === 'image'
+                    ? `이미지 ${o.images}`
+                    : `${(o.input + o.output).toLocaleString()} 토큰`}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p style={{ ...muted, fontSize: 12, marginTop: 10, marginBottom: 0 }}>
+            {u.priced
+              ? 'Claude(유료) 사용분의 대략적 추정입니다. 무료(Gemini·Pollinations)는 $0로 계산돼요.'
+              : '무료 모드(Gemini·Pollinations)만 사용해 비용이 발생하지 않았습니다.'}
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
 
 type Tab = 'episodes' | 'characters' | 'world' | 'settings'
 
@@ -142,12 +221,14 @@ export default function ProjectDetail({ id, onBack }: { id: string; onBack: () =
                 </select>
               </div>
 
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 18 }}>
                 <button style={btnPrimary} onClick={save} disabled={busy || !name.trim()}>
                   설정 저장
                 </button>
                 {saved && <span style={okText}>저장됨 ✓</span>}
               </div>
+
+              <UsageCard projectId={id} />
             </>
           )}
         </>

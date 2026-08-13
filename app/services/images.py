@@ -54,4 +54,5 @@ def generate_panel_image(panel_id: str) -> dict:
 
     rel = files.save_bytes(project.id, "panels", f"{panel_id}.jpg", data)
     repo.update_panel(panel_id, prompt=prompt, image_path=rel)
+    repo.add_usage(project.id, "image", generator.name, None, None, images=1)
     return {"generator": generator.name, "prompt": prompt, "image_path": rel}

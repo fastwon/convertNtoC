@@ -133,6 +133,8 @@ def summarize_episode(episode_id: str) -> dict:
 
     repo.set_episode_summary(episode_id, summary)
     repo.set_episode_status(episode_id, "summarized")
+    repo.add_usage(episode.project_id, "summarize", provider.name,
+                   getattr(provider, "last_model", None), getattr(provider, "last_usage", None))
     return {
         "summary": summary,
         "provider": provider.name,

@@ -442,3 +442,44 @@ def set_global_memory(project_id: str, world_bible: str) -> GlobalMemory | None:
             (project_id, world_bible, _now()),
         )
     return get_global_memory(project_id)
+
+
+# --- Usage / cost -----------------------------------------------------------
+
+def add_usage(
+    project_id: str,
+    operation: str,
+    provider: str,
+    model: str | None,
+    usage: dict | None,
+    images: int = 0,
+) -> None:
+    """Record one API call's token usage (and/or image count) for cost display."""
+    u = usage or {}
+    with db.connect() as conn:
+        conn.execute(
+            "INSERT INTO usage_log(id, project_id, ts, operation, provider, model,"
+            " input, output, cache_read, cache_write, images)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                _new_id(), project_id, _now(), operation, provider, model,
+                int(u.get("input", 0) or 0), int(u.get("output", 0) or 0),
+                int(u.get("cache_read", 0) or 0), int(u.get("cache_write", 0) or 0),
+                int(images),
+            ),
+        )
+
+
+def get_usage_rows(project_id: str) -> list[dict]:
+    """Per-(operation, model) aggregation for a project, newest activity first."""
+    with db.connect() as conn:
+        rows = conn.execute(
+            "SELECT operation, model, provider, COUNT(*) AS calls,"
+            " SUM(input) AS input, SUM(output) AS output,"
+            " SUM(cache_read) AS cache_read, SUM(cache_write) AS cache_write,"
+            " SUM(images) AS images"
+            " FROM usage_log WHERE project_id = ?"
+            " GROUP BY operation, model ORDER BY operation",
+            (project_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]

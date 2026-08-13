@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from ..services.cost import is_priced, token_cost
 from ..storage import repository as repo
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -63,3 +64,39 @@ def delete_project(project_id: str) -> dict:
         raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다")
     repo.delete_project(project_id)
     return {"ok": True}
+
+
+_OP_LABELS = {
+    "extract": "인물 추출", "summarize": "회차 요약", "storyboard": "콘티 생성",
+    "describe": "외형 추출", "image": "이미지 생성",
+}
+
+
+@router.get("/{project_id}/usage")
+def project_usage(project_id: str) -> dict:
+    """Token usage + rough cost estimate for cost transparency (user pays)."""
+    if repo.get_project(project_id) is None:
+        raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다")
+    rows = repo.get_usage_rows(project_id)
+    tot = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0, "images": 0}
+    est = 0.0
+    priced = False  # any priced (paid) model was used
+    by_op: dict[str, dict] = {}
+    for r in rows:
+        for k in tot:
+            tot[k] += r[k] or 0
+        est += token_cost(r["model"], r["input"], r["output"], r["cache_read"], r["cache_write"])
+        priced = priced or is_priced(r["model"])
+        op = r["operation"]
+        agg = by_op.setdefault(op, {"operation": op, "label": _OP_LABELS.get(op, op),
+                                    "calls": 0, "input": 0, "output": 0, "images": 0})
+        agg["calls"] += r["calls"] or 0
+        agg["input"] += r["input"] or 0
+        agg["output"] += r["output"] or 0
+        agg["images"] += r["images"] or 0
+    return {
+        "totals": tot,
+        "by_operation": list(by_op.values()),
+        "est_cost_usd": round(est, 4),
+        "priced": priced,  # false → free provider only, cost ≈ $0
+    }

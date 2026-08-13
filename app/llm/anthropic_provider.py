@@ -25,6 +25,7 @@ class AnthropicProvider:
         self._client = anthropic.Anthropic(api_key=api_key, max_retries=0, timeout=30.0)
         self._model = model
         self.last_usage: dict | None = None
+        self.last_model: str | None = None
 
     @staticmethod
     def _system_param(system: str) -> list[dict]:
@@ -43,6 +44,7 @@ class AnthropicProvider:
         ]
 
     def _record_usage(self, msg: object) -> None:
+        self.last_model = self._model
         u = getattr(msg, "usage", None)
         self.last_usage = {
             "input": getattr(u, "input_tokens", 0) or 0,

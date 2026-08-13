@@ -425,3 +425,23 @@ export async function openDataFolder(): Promise<{ folder: string }> {
 export async function purgeBackups(): Promise<{ freed: number }> {
   return jsonOrThrow(await fetch('/api/system/purge-backups', { method: 'POST' }))
 }
+
+// ---- usage / cost ----
+export type UsageOp = {
+  operation: string
+  label: string
+  calls: number
+  input: number
+  output: number
+  images: number
+}
+export type ProjectUsage = {
+  totals: { input: number; output: number; cache_read: number; cache_write: number; images: number }
+  by_operation: UsageOp[]
+  est_cost_usd: number
+  priced: boolean
+}
+
+export async function getProjectUsage(projectId: string): Promise<ProjectUsage> {
+  return jsonOrThrow(await fetch(`/api/projects/${projectId}/usage`))
+}
