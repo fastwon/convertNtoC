@@ -1,10 +1,15 @@
 import { useState } from 'react'
 import Dashboard from './Dashboard'
+import Help from './Help'
 import ProjectDetail from './ProjectDetail'
 import Settings from './Settings'
 import { c } from './ui'
 
-type View = { name: 'dashboard' } | { name: 'project'; id: string } | { name: 'settings' }
+type View =
+  | { name: 'dashboard' }
+  | { name: 'project'; id: string }
+  | { name: 'settings' }
+  | { name: 'help' }
 
 export default function App() {
   const [view, setView] = useState<View>({ name: 'dashboard' })
@@ -53,13 +58,16 @@ export default function App() {
           convert<span style={{ color: c.accent }}>N2C</span>
         </button>
         <button
-          style={navItem(view.name !== 'settings')}
+          style={navItem(view.name === 'dashboard' || view.name === 'project')}
           onClick={() => setView({ name: 'dashboard' })}
         >
           대시보드
         </button>
         <button style={navItem(view.name === 'settings')} onClick={() => setView({ name: 'settings' })}>
           설정
+        </button>
+        <button style={navItem(view.name === 'help')} onClick={() => setView({ name: 'help' })}>
+          도움말
         </button>
       </header>
 
@@ -71,6 +79,7 @@ export default function App() {
           <ProjectDetail id={view.id} onBack={() => setView({ name: 'dashboard' })} />
         )}
         {view.name === 'settings' && <Settings />}
+        {view.name === 'help' && <Help />}
       </main>
     </div>
   )
